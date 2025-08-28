@@ -22,10 +22,12 @@ export default function AuthPage() {
   return (
     <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px' }}>
       <h1>Nihon GO! Login</h1>
-      <Auth
-        supabaseClient={supabase}
-        appearance={{ theme: ThemeSupa }}
-      />
+<Auth
+  supabaseClient={supabase}
+  appearance={{ theme: ThemeSupa }}
+  providers={[]}
+  onlyThirdPartyProviders={false}
+/>
     </div>
   )
 }
