@@ -196,7 +196,46 @@ export default function BookingPage() {
       if (updateError) throw updateError
 
       alert('Lesson booked successfully! You will receive a Zoom link via email.')
-      
+// メール送信
+try {
+  // 生徒へのメール
+  await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: user.email,
+      subject: 'Lesson Booking Confirmation - Nihon GO!',
+      html: `
+        <h2>Lesson Booking Confirmed</h2>
+        <p>Your Japanese lesson has been booked successfully!</p>
+        <p><strong>Teacher:</strong> ${selectedTeacher.name}</p>
+        <p><strong>Date:</strong> ${selectedDate}</p>
+        <p><strong>Time:</strong> ${selectedTimeSlot.start.toLocaleString()}</p>
+        <p>You will receive a Zoom link closer to the lesson time.</p>
+      `
+    })
+  })
+
+  // 講師へのメール  
+  await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: selectedTeacher.email,
+      subject: 'New Lesson Booking - Nihon GO!',
+      html: `
+        <h2>New Lesson Booking</h2>
+        <p>You have a new lesson booking!</p>
+        <p><strong>Student:</strong> ${user.email}</p>
+        <p><strong>Date:</strong> ${selectedDate}</p>
+        <p><strong>Time:</strong> ${selectedTimeSlot.start.toLocaleString()}</p>
+      `
+    })
+  })
+} catch (emailError) {
+  console.error('Error sending email:', emailError)
+  // メール送信エラーでも予約は成功しているので、警告のみ
+}      
       // リセット
       setSelectedDate('')
       setSelectedTimeSlot(null)
