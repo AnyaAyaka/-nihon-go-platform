@@ -25,7 +25,6 @@ export default function AuthPage() {
       <Auth
         supabaseClient={supabase}
         appearance={{ theme: ThemeSupa }}
-        providers={['google']}
       />
     </div>
   )
