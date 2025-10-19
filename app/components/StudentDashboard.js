@@ -1,5 +1,4 @@
 'use client'
-
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -52,195 +51,237 @@ export default function StudentDashboard({ user, profile }) {
     setLoading(false)
   }
 
-  const isExpired = (dateString) => {
-    return new Date(dateString) < new Date()
+  const cardStyle = {
+    background: 'white',
+    borderRadius: '12px',
+    padding: '40px',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    border: '1px solid #e2e8f0',
+    transition: 'all 0.3s ease',
+    cursor: 'pointer',
+    position: 'relative',
+    overflow: 'hidden'
   }
 
-  const formatLessonTime = (utcTime, timezone) => {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(new Date(utcTime))
+  const buttonStyle = {
+    background: '#1e293b',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    width: '100%'
   }
 
   return (
-    <div>
-      <h2 style={{ marginBottom: '30px', color: '#333' }}>Student Dashboard</h2>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-        gap: '25px', 
-        margin: '20px 0' 
-      }}>
+    <div style={{ padding: '48px 24px', maxWidth: '1200px', margin: '0 auto', background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', minHeight: '100vh' }}>
+      <h2 style={{ marginBottom: '32px', fontSize: '28px', fontWeight: '700', color: '#1e293b' }}>
+        Student Dashboard
+      </h2>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px' }}>
         
-        <div style={{ 
-          border: '2px solid #e1e5e9', 
-          padding: '25px', 
-          borderRadius: '15px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          transition: 'transform 0.3s ease',
-          cursor: 'pointer'
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px' }}>📚 My Textbooks</h3>
-          <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>View and study online textbooks</p>
+        {/* My Textbooks Card */}
+        <div 
+          style={cardStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = '0 15px 40px rgba(251, 113, 133, 0.15)'
+            e.currentTarget.style.transform = 'translateY(-5px)'
+            e.currentTarget.style.borderColor = '#fb7185'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.borderColor = '#e2e8f0'
+          }}
+        >
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            height: '4px', 
+            background: 'linear-gradient(90deg, #fb7185 0%, #f472b6 100%)' 
+          }}></div>
+          <div style={{ fontSize: '40px', marginBottom: '16px', textAlign: 'center' }}>📚</div>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px', fontWeight: '600', color: '#1e293b', textAlign: 'center' }}>
+            My Textbooks
+          </h3>
+          <p style={{ margin: '0 0 20px 0', color: '#374151', fontSize: '15px', lineHeight: '1.6', textAlign: 'center' }}>
+            View and study online textbooks
+          </p>
           <button 
-            onClick={() => router.push('/textbook')}
-            style={{ 
-              padding: '12px 20px', 
-              backgroundColor: 'rgba(255,255,255,0.2)', 
-              color: 'white', 
-              border: '2px solid rgba(255,255,255,0.3)', 
-              borderRadius: '25px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease'
-            }}
+            onClick={() => router.push('/textbooks')}
+            style={buttonStyle}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
           >
             Study Now
           </button>
         </div>
 
-        <div style={{ 
-          border: '2px solid #e1e5e9', 
-          padding: '25px', 
-          borderRadius: '15px',
-          background: currentTickets && !isExpired(currentTickets.current_period_end) && currentTickets.remaining_tickets > 0 ? 
-            'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)' : 
-            'linear-gradient(135deg, #FF9800 0%, #F57C00 100%)',
-          color: 'white',
-          transition: 'transform 0.3s ease'
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px' }}>🎫 My Subscription</h3>
+        {/* My Tickets Card */}
+        <div 
+          style={{...cardStyle, background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)', color: 'white'}}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = '0 15px 40px rgba(251, 113, 133, 0.3)'
+            e.currentTarget.style.transform = 'translateY(-5px)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+            e.currentTarget.style.transform = 'translateY(0)'
+          }}
+        >
+          <div style={{ fontSize: '40px', marginBottom: '16px', textAlign: 'center' }}>🎫</div>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px', fontWeight: '600', textAlign: 'center' }}>
+            My Tickets
+          </h3>
           {loading ? (
-            <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>Loading...</p>
-          ) : currentTickets && !isExpired(currentTickets.current_period_end) ? (
-            <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>
-              {currentTickets.remaining_tickets} tickets remaining this month
+            <p style={{ margin: '0 0 20px 0', fontSize: '15px', opacity: '0.9', textAlign: 'center' }}>Loading...</p>
+          ) : currentTickets && currentTickets.remaining_tickets > 0 ? (
+            <p style={{ margin: '0 0 20px 0', textAlign: 'center' }}>
+              <span style={{ fontSize: '48px', fontWeight: '900', display: 'block', lineHeight: '1' }}>
+                {currentTickets.remaining_tickets}
+              </span>
+              <span style={{ fontSize: '14px', fontWeight: '400', opacity: '0.9', display: 'block', marginTop: '8px' }}>
+                tickets remaining
+              </span>
             </p>
           ) : (
-            <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>No active subscription</p>
+            <p style={{ margin: '0 0 20px 0', fontSize: '15px', opacity: '0.9', textAlign: 'center' }}>No tickets available</p>
           )}
           <button 
             onClick={() => router.push('/subscription')}
-            style={{ 
-              padding: '12px 20px', 
-              backgroundColor: 'rgba(255,255,255,0.2)', 
-              color: 'white', 
-              border: '2px solid rgba(255,255,255,0.3)', 
-              borderRadius: '25px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            style={{...buttonStyle, background: 'rgba(255,255,255,0.2)', border: '2px solid white'}}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.3)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
           >
-            {currentTickets && !isExpired(currentTickets.current_period_end) && currentTickets.remaining_tickets > 0 ? 
-              'Manage Subscription' : 'Subscribe Now'}
+            Get Tickets
           </button>
         </div>
 
-        <div style={{ 
-          border: '2px solid #e1e5e9', 
-          padding: '25px', 
-          borderRadius: '15px',
-          background: 'linear-gradient(135deg, #2196F3 0%, #21CBF3 100%)',
-          color: 'white',
-          transition: 'transform 0.3s ease'
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px' }}>📅 Book Lesson</h3>
-          <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>
-            {currentTickets && currentTickets.remaining_tickets > 0 ? 
-              'Schedule your next lesson' : 
-              'Get tickets to book lessons'
-            }
+        {/* Book Lesson Card */}
+        <div 
+          style={cardStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = '0 15px 40px rgba(251, 113, 133, 0.15)'
+            e.currentTarget.style.transform = 'translateY(-5px)'
+            e.currentTarget.style.borderColor = '#fb7185'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.borderColor = '#e2e8f0'
+          }}
+        >
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            height: '4px', 
+            background: 'linear-gradient(90deg, #fb7185 0%, #f472b6 100%)' 
+          }}></div>
+          <div style={{ fontSize: '40px', marginBottom: '16px', textAlign: 'center' }}>📅</div>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px', fontWeight: '600', color: '#1e293b', textAlign: 'center' }}>
+            Book Lesson
+          </h3>
+          <p style={{ margin: '0 0 20px 0', color: '#374151', fontSize: '15px', lineHeight: '1.6', textAlign: 'center' }}>
+            Schedule your next lesson
           </p>
           <button 
-            onClick={() => router.push(currentTickets && currentTickets.remaining_tickets > 0 ? '/booking' : '/subscription')}
-            style={{ 
-              padding: '12px 20px', 
-              backgroundColor: 'rgba(255,255,255,0.2)', 
-              color: 'white', 
-              border: '2px solid rgba(255,255,255,0.3)', 
-              borderRadius: '25px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            onClick={() => router.push('/booking')}
+            style={buttonStyle}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
           >
-            {currentTickets && currentTickets.remaining_tickets > 0 ? 'Book Now' : 'Get Tickets'}
+            Book Now
           </button>
         </div>
 
-        <div style={{ 
-          border: '2px solid #e1e5e9', 
-          padding: '25px', 
-          borderRadius: '15px',
-          background: 'linear-gradient(135deg, #9C27B0 0%, #673AB7 100%)',
-          color: 'white',
-          transition: 'transform 0.3s ease'
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px' }}>📖 Upcoming Lessons</h3>
-          {loading ? (
-            <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>Loading...</p>
-          ) : upcomingLessons.length > 0 ? (
-            <div style={{ margin: '0 0 20px 0' }}>
-              {upcomingLessons.slice(0, 2).map((lesson, index) => (
-                <div key={lesson.id} style={{ 
-                  marginBottom: '10px',
-                  fontSize: '14px',
-                  opacity: '0.9'
-                }}>
-                  <div>{lesson.teachers?.display_name}</div>
-                  <div>{formatLessonTime(lesson.lesson_start_utc, Intl.DateTimeFormat().resolvedOptions().timeZone)}</div>
-                  {index === 0 && upcomingLessons.length > 1 && <hr style={{ margin: '8px 0', opacity: '0.3' }} />}
-                </div>
-              ))}
-            </div>
+        {/* Upcoming Lessons Card */}
+        <div 
+          style={cardStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = '0 15px 40px rgba(251, 113, 133, 0.15)'
+            e.currentTarget.style.transform = 'translateY(-5px)'
+            e.currentTarget.style.borderColor = '#fb7185'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.borderColor = '#e2e8f0'
+          }}
+        >
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            height: '4px', 
+            background: 'linear-gradient(90deg, #fb7185 0%, #f472b6 100%)' 
+          }}></div>
+          <div style={{ fontSize: '40px', marginBottom: '16px', textAlign: 'center' }}>📖</div>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px', fontWeight: '600', color: '#1e293b', textAlign: 'center' }}>
+            Upcoming Lessons
+          </h3>
+          {upcomingLessons.length > 0 ? (
+            <p style={{ margin: '0 0 20px 0', color: '#374151', fontSize: '15px', textAlign: 'center' }}>
+              {upcomingLessons.length} lessons scheduled
+            </p>
           ) : (
-            <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>No upcoming lessons</p>
+            <p style={{ margin: '0 0 20px 0', color: '#374151', fontSize: '15px', textAlign: 'center' }}>
+              No upcoming lessons
+            </p>
           )}
           <button 
-            onClick={() => router.push('/booking')}
-            style={{ 
-              padding: '12px 20px', 
-              backgroundColor: 'rgba(255,255,255,0.2)', 
-              color: 'white', 
-              border: '2px solid rgba(255,255,255,0.3)', 
-              borderRadius: '25px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+            onClick={() => router.push('/lessons')}
+            style={buttonStyle}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
           >
             View All
           </button>
         </div>
 
-        <div style={{ 
-          border: '2px solid #e1e5e9', 
-          padding: '25px', 
-          borderRadius: '15px',
-          background: 'linear-gradient(135deg, #607D8B 0%, #455A64 100%)',
-          color: 'white',
-          transition: 'transform 0.3s ease'
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px' }}>💬 Chat with Teacher</h3>
-          <p style={{ margin: '0 0 20px 0', opacity: '0.9' }}>Message your teacher</p>
-          <button style={{ 
-            padding: '12px 20px', 
-            backgroundColor: 'rgba(255,255,255,0.2)', 
-            color: 'white', 
-            border: '2px solid rgba(255,255,255,0.3)', 
-            borderRadius: '25px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}>
+        {/* Chat with Teacher Card */}
+        <div 
+          style={cardStyle}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = '0 15px 40px rgba(251, 113, 133, 0.15)'
+            e.currentTarget.style.transform = 'translateY(-5px)'
+            e.currentTarget.style.borderColor = '#fb7185'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.borderColor = '#e2e8f0'
+          }}
+        >
+          <div style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            height: '4px', 
+            background: 'linear-gradient(90deg, #fb7185 0%, #f472b6 100%)' 
+          }}></div>
+          <div style={{ fontSize: '40px', marginBottom: '16px', textAlign: 'center' }}>💬</div>
+          <h3 style={{ margin: '0 0 15px 0', fontSize: '20px', fontWeight: '600', color: '#1e293b', textAlign: 'center' }}>
+            Chat with Teacher
+          </h3>
+          <p style={{ margin: '0 0 20px 0', color: '#374151', fontSize: '15px', lineHeight: '1.6', textAlign: 'center' }}>
+            Message your teacher
+          </p>
+          <button 
+            onClick={() => router.push('/chat')}
+            style={buttonStyle}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+          >
             Open Chat
           </button>
         </div>

@@ -6,9 +6,6 @@ import { useRouter } from 'next/navigation'
 
 export default function SubscriptionPage() {
   const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [currentTickets, setCurrentTickets] = useState(null)
-  const [currentSubscription, setCurrentSubscription] = useState(null)
   const [subscriptionPlans, setSubscriptionPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [subscribing, setSubscribing] = useState(false)
@@ -25,355 +22,57 @@ export default function SubscriptionPage() {
       router.push('/auth')
       return
     }
-
     setUser(user)
-
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    setProfile(profileData)
-    await fetchCurrentSubscription(user.id)
-    await fetchCurrentTickets(user.id)
     setLoading(false)
   }
 
-  const fetchCurrentSubscription = async (userId) => {
-    const { data, error } = await supabase
-      .from('user_subscriptions')
-      .select(`
-        *,
-        subscription_plans (name, monthly_tickets, monthly_price)
-      `)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching subscription:', error)
-    } else if (data) {
-      setCurrentSubscription(data)
-    }
-  }
-
-  const fetchCurrentTickets = async (userId) => {
-    const { data, error } = await supabase
-      .from('user_current_tickets')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching current tickets:', error)
-    } else if (data) {
-      setCurrentTickets(data)
-    }
-  }
-
   const fetchSubscriptionPlans = async () => {
-    const { data, error } = await supabase
-      .from('subscription_plans')
-      .select('*')
-      .eq('active', true)
-      .order('monthly_tickets', { ascending: true })
-
-    if (error) {
-      console.error('Error fetching plans:', error)
-    } else {
-      setSubscriptionPlans(data || [])
-    }
+    const plans = [
+      { id: 'trial', name: 'Online Trial Lesson', price: 23, tickets: 1, description: 'For first-time use only - 55 min', priceId: 'price_1SFTbDD1Jzw9CFoslgOlWedF' },
+      { id: 'online', name: 'Online Tutoring 4 tickets', price: 120, tickets: 4, description: '55 min lessons - Expiration: 4 weeks', priceId: 'price_1SFTbjD1Jzw9CFosWXNqEkTo' },
+      { id: 'inperson', name: 'In-person in the UK 4 tickets', price: 180, tickets: 4, description: '55 min lessons - Expiration: 4 weeks', priceId: 'price_1SFTcKD1Jzw9CFosBY5pShNO' },
+      { id: 'premium', name: 'Premium lesson w/ Ayaka 4 tickets', price: 140, tickets: 4, description: '55 min premium lessons - Expiration: 4 weeks', priceId: 'price_1SFTctD1Jzw9CFos7z3HspPP' }
+    ]
+    setSubscriptionPlans(plans)
   }
 
   const subscribeToPlan = async (plan) => {
     setSubscribing(true)
-
     try {
-      const today = new Date()
-      const currentPeriodStart = today.toISOString().split('T')[0]
-      
-      const nextMonth = new Date(today)
-      nextMonth.setMonth(nextMonth.getMonth() + 1)
-      nextMonth.setDate(nextMonth.getDate() - 1)
-      const currentPeriodEnd = nextMonth.toISOString().split('T')[0]
-
-      if (currentSubscription) {
-        await supabase
-          .from('user_subscriptions')
-          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .eq('id', currentSubscription.id)
-      }
-
-      const { data: newSub, error: subError } = await supabase
-        .from('user_subscriptions')
-        .insert({
-          user_id: user.id,
-          plan_id: plan.id,
-          status: 'active',
-          current_period_start: currentPeriodStart,
-          current_period_end: currentPeriodEnd,
-          stripe_subscription_id: null
-        })
-        .select()
-        .single()
-
-      if (subError) throw subError
-
-      const { error: grantError } = await supabase
-        .from('monthly_ticket_grants')
-        .insert({
-          user_id: user.id,
-          subscription_id: newSub.id,
-          tickets_granted: plan.monthly_tickets,
-          grant_period_start: currentPeriodStart,
-          grant_period_end: currentPeriodEnd
-        })
-
-      if (grantError) throw grantError
-
-      const { error: ticketsError } = await supabase
-        .from('user_current_tickets')
-        .upsert({
-          user_id: user.id,
-          remaining_tickets: plan.monthly_tickets,
-          current_period_start: currentPeriodStart,
-          current_period_end: currentPeriodEnd,
-          updated_at: new Date().toISOString()
-        })
-
-      if (ticketsError) throw ticketsError
-
-      alert(`Successfully subscribed to ${plan.name}!`)
-      
-      await fetchCurrentSubscription(user.id)
-      await fetchCurrentTickets(user.id)
-
+      const response = await fetch('/api/create-checkout-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priceId: plan.priceId, userId: user.id }) })
+      const data = await response.json()
+      if (data.url) window.location.href = data.url
     } catch (error) {
-      console.error('Error subscribing:', error)
-      alert('Error subscribing to plan. Please try again.')
-    } finally {
+      console.error('Error:', error)
+      alert('Error subscribing to plan.')
       setSubscribing(false)
     }
-  }
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
   }
 
   if (loading) return <div>Loading...</div>
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-      padding: '20px'
-    }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)', padding: '20px' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        
-        <div style={{ 
-          background: 'white',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center'
-        }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '32px', 
-              fontWeight: '700',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              margin: '0 0 10px 0'
-            }}>
-              🎫 My Subscription
-            </h1>
-            <p style={{ margin: 0, color: '#666' }}>
-              Manage your monthly lesson subscription
-            </p>
-          </div>
-          
-          <button 
-            onClick={() => router.push('/dashboard')}
-            style={{ 
-              padding: '12px 20px', 
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '25px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Back to Dashboard
-          </button>
+        <div style={{ background: 'white', borderRadius: '20px', padding: '30px', marginBottom: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div><h1 style={{ fontSize: '32px', fontWeight: '700', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: '0 0 10px 0' }}>🎫 Buy Lesson Tickets</h1><p style={{ margin: 0, color: '#666' }}>Choose your lesson package</p></div>
+          <button onClick={() => router.push('/dashboard')} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none', borderRadius: '25px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Back to Dashboard</button>
         </div>
-
-        <div style={{ 
-          background: 'white',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-        }}>
-          <h2 style={{ marginBottom: '20px', color: '#333' }}>Current Status</h2>
-          
-          {currentSubscription ? (
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              padding: '25px',
-              background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-              borderRadius: '15px',
-              color: 'white',
-              marginBottom: '20px'
-            }}>
-              <div>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '24px' }}>
-                  {currentSubscription.subscription_plans?.name}
-                </h3>
-                <p style={{ margin: '0 0 5px 0', opacity: '0.9' }}>
-                  ${currentSubscription.subscription_plans?.monthly_price}/month
-                </p>
-                <p style={{ margin: 0, opacity: '0.9', fontSize: '14px' }}>
-                  Renews on {formatDate(currentSubscription.current_period_end)}
-                </p>
+        <div style={{ background: 'white', borderRadius: '20px', padding: '30px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ marginBottom: '30px', color: '#333' }}>Choose Your Package</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+            {subscriptionPlans.map((plan, index) => (
+              <div key={plan.id} style={{ border: index === 1 ? '3px solid #667eea' : '2px solid #e1e5e9', borderRadius: '20px', padding: '30px', textAlign: 'center', position: 'relative', background: index === 1 ? '#f8f9ff' : 'white' }}>
+                {index === 1 && <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', padding: '5px 20px', borderRadius: '15px', fontSize: '12px', fontWeight: '600' }}>MOST POPULAR</div>}
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', color: '#333' }}>{plan.name}</h3>
+                <div style={{ margin: '20px 0' }}><span style={{ fontSize: '48px', fontWeight: '700', color: index === 1 ? '#667eea' : '#333' }}>£{plan.price}</span></div>
+                <div style={{ margin: '20px 0' }}><div style={{ fontSize: '18px', fontWeight: '600', color: '#333', marginBottom: '5px' }}>{plan.tickets} Ticket{plan.tickets > 1 ? 's' : ''}</div>{plan.tickets > 1 && <div style={{ fontSize: '14px', color: '#666' }}>£{(plan.price / plan.tickets).toFixed(2)} per lesson</div>}</div>
+                <p style={{ color: '#666', fontSize: '14px', margin: '20px 0', lineHeight: '1.5', minHeight: '60px' }}>{plan.description}</p>
+                <button onClick={() => subscribeToPlan(plan)} disabled={subscribing} style={{ width: '100%', padding: '15px', background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)', color: 'white', border: 'none', borderRadius: '25px', fontSize: '16px', fontWeight: '600', cursor: subscribing ? 'not-allowed' : 'pointer', opacity: subscribing ? 0.7 : 1 }}>{subscribing ? 'Processing...' : 'Buy Now'}</button>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '36px', marginBottom: '5px' }}>
-                  {currentTickets?.remaining_tickets || 0}
-                </div>
-                <div style={{ fontSize: '14px', opacity: '0.9' }}>
-                  tickets left
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '40px',
-              background: '#f8f9fa',
-              borderRadius: '15px',
-              color: '#666',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{ margin: '0 0 10px 0' }}>No Active Subscription</h3>
-              <p style={{ margin: 0 }}>Choose a plan below to start your monthly lessons</p>
-            </div>
-          )}
-        </div>
-
-        {!currentSubscription && (
-          <div style={{ 
-            background: 'white',
-            borderRadius: '20px',
-            padding: '30px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-          }}>
-            <h2 style={{ marginBottom: '30px', color: '#333' }}>Choose Your Monthly Plan</h2>
-            
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-              gap: '25px' 
-            }}>
-              {subscriptionPlans.map((plan, index) => (
-                <div key={plan.id} style={{ 
-                  border: index === 2 ? '3px solid #667eea' : '2px solid #e1e5e9',
-                  borderRadius: '20px',
-                  padding: '30px',
-                  textAlign: 'center',
-                  position: 'relative',
-                  background: index === 2 ? '#f8f9ff' : 'white'
-                }}>
-                  {index === 2 && (
-                    <div style={{ 
-                      position: 'absolute',
-                      top: '-10px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: 'white',
-                      padding: '5px 20px',
-                      borderRadius: '15px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      MOST POPULAR
-                    </div>
-                  )}
-                  
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '24px', color: '#333' }}>
-                    {plan.name}
-                  </h3>
-                  
-                  <div style={{ margin: '20px 0' }}>
-                    <span style={{ 
-                      fontSize: '48px', 
-                      fontWeight: '700',
-                      color: index === 2 ? '#667eea' : '#333'
-                    }}>
-                      ${plan.monthly_price}
-                    </span>
-                    <span style={{ color: '#666', fontSize: '16px' }}>/month</span>
-                  </div>
-                  
-                  <div style={{ margin: '20px 0' }}>
-                    <div style={{ 
-                      fontSize: '20px', 
-                      fontWeight: '600', 
-                      color: '#333',
-                      marginBottom: '5px'
-                    }}>
-                      {plan.monthly_tickets} Lessons/Month
-                    </div>
-                    <div style={{ fontSize: '14px', color: '#666' }}>
-                      ${(plan.monthly_price / plan.monthly_tickets).toFixed(2)} per lesson
-                    </div>
-                  </div>
-                  
-                  <p style={{ 
-                    color: '#666', 
-                    fontSize: '14px',
-                    margin: '20px 0',
-                    lineHeight: '1.5'
-                  }}>
-                    {plan.description}
-                  </p>
-                  
-                  <button 
-                    onClick={() => subscribeToPlan(plan)}
-                    disabled={subscribing}
-                    style={{ 
-                      width: '100%',
-                      padding: '15px',
-                      background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '25px',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      cursor: subscribing ? 'not-allowed' : 'pointer',
-                      opacity: subscribing ? 0.7 : 1
-                    }}
-                  >
-                    {subscribing ? 'Processing...' : 'Subscribe Now'}
-                  </button>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
