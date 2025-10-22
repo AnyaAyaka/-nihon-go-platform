@@ -27,11 +27,11 @@ export default function SubscriptionPage() {
   }
 
   const fetchSubscriptionPlans = async () => {
-    const plans = [
-      { id: 'trial', name: 'Online Trial Lesson', price: 23, tickets: 1, description: 'For first-time use only - 55 min', priceId: 'price_1SFTbDD1Jzw9CFoslgOlWedF' },
-      { id: 'online', name: 'Online Tutoring 4 tickets', price: 120, tickets: 4, description: '55 min lessons - Expiration: 4 weeks', priceId: 'price_1SFTbjD1Jzw9CFosWXNqEkTo' },
-      { id: 'inperson', name: 'In-person in the UK 4 tickets', price: 180, tickets: 4, description: '55 min lessons - Expiration: 4 weeks', priceId: 'price_1SFTcKD1Jzw9CFosBY5pShNO' },
-      { id: 'premium', name: 'Premium lesson w/ Ayaka 4 tickets', price: 140, tickets: 4, description: '55 min premium lessons - Expiration: 4 weeks', priceId: 'price_1SFTctD1Jzw9CFos7z3HspPP' }
+const plans = [
+  { id: 'trial', name: 'Online Trial Lesson', price: 23, tickets: 1, description: 'For first-time use only - 55 min', priceId: 'price_1SKoIUD1Jzw9CFosLC6YJDbE' },
+  { id: 'online', name: 'Online Tutoring 4 tickets', price: 120, tickets: 4, description: '55 min lessons - Expiration: 4 weeks', priceId: 'price_1SKoMdD1Jzw9CFossg3r23ni' },
+  { id: 'inperson', name: 'In-person in the UK 4 tickets', price: 180, tickets: 4, description: '55 min lessons - Expiration: 4 weeks', priceId: 'price_1SKoNHD1Jzw9CFos5bXzv5br' },
+  { id: 'premium', name: 'Premium lesson w/ Ayaka 4 tickets', price: 140, tickets: 4, description: '55 min premium lessons - Expiration: 4 weeks', priceId: 'price_1SKoNlD1Jzw9CFosNNFJmjI4' }
     ]
     setSubscriptionPlans(plans)
   }
