@@ -35,10 +35,10 @@ export async function POST(request) {
     const priceId = lineItems.data[0].price.id
     
     let ticketsToAdd = 0
-    if (priceId === 'price_1SFTbDD1Jzw9CFoslgOlWedF') ticketsToAdd = 1
-    if (priceId === 'price_1SFTbjD1Jzw9CFosWXNqEkTo') ticketsToAdd = 4
-    if (priceId === 'price_1SFTcKD1Jzw9CFosBY5pShNO') ticketsToAdd = 4
-    if (priceId === 'price_1SFTctD1Jzw9CFos7z3HspPP') ticketsToAdd = 4
+    if (priceId === 'price_1SKoIUD1Jzw9CFosLC6YJDbE') ticketsToAdd = 1  // Online Trial
+    if (priceId === 'price_1SKoMdD1Jzw9CFossg3r23ni') ticketsToAdd = 4  // Online 4
+    if (priceId === 'price_1SKoNHD1Jzw9CFos5bXzv5br') ticketsToAdd = 4  // In-person 4
+    if (priceId === 'price_1SKoNlD1Jzw9CFosNNFJmjI4') ticketsToAdd = 4  // Premium 4
 
     console.log('Tickets to add:', ticketsToAdd)
 
