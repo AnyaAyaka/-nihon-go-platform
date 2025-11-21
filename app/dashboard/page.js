@@ -26,11 +26,17 @@ export default function Dashboard() {
 
     setUser(user)
 
-    const { data: profileData } = await supabase
+    const { data: profileData, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', user.id)
       .single()
+
+    console.log('Profile Data:', profileData)
+    console.log('Profile Role:', profileData?.role)
+    console.log('Role Type:', typeof profileData?.role)
+    console.log('Role Length:', profileData?.role?.length)
+    console.log('Profile Error:', error)
 
     setProfile(profileData)
     setLoading(false)
@@ -188,7 +194,7 @@ export default function Dashboard() {
             color: '#64748b', 
             fontSize: '16px'
           }}>
-            Your profile role is not recognized. Please update your profile.
+            Your profile role is not recognized. Role: "{profile?.role}"
           </p>
           <button
             onClick={() => router.push('/profile')}
