@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import StudentDashboard from '../components/StudentDashboard'
 import TeacherDashboard from '../components/TeacherDashboard'
-import AdminDashboard from '../components/AdminDashboard'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
@@ -14,193 +13,200 @@ export default function Dashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    getUser()
+    checkUser()
   }, [])
 
-  const getUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/auth')
-        return
-      }
-
-      setUser(user)
-
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      setProfile(profileData)
-    } catch (error) {
-      console.log('Error:', error)
-    } finally {
-      setLoading(false)
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      router.push('/auth')
+      return
     }
+
+    setUser(user)
+
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    setProfile(profileData)
+    setLoading(false)
   }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/auth')
-  }
-
-  const getRoleDisplayName = (role) => {
-    switch(role) {
-      case 'student': return 'Student'
-      case 'teacher': return 'Teacher'
-      case 'admin': return 'Admin'
-      default: return 'User'
-    }
-  }
-
-  const renderDashboard = () => {
-    switch(profile?.role) {
-      case 'student':
-        return <StudentDashboard user={user} profile={profile} />
-      case 'teacher':
-        return <TeacherDashboard user={user} profile={profile} />
-      case 'admin':
-        return <AdminDashboard user={user} profile={profile} />
-      default:
-        return (
-          <div style={{
-            textAlign: 'center',
-            padding: '60px 20px',
-            background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-            borderRadius: '20px',
-            color: 'white',
-            margin: '0 0 8px 0'
-          }}>
-            <h3 style={{ fontSize: '24px', marginBottom: '16px' }}>Complete Your Profile</h3>
-            <p style={{ fontSize: '16px', opacity: '0.9', marginBottom: '24px' }}>
-              Please set your role in your profile to access the dashboard features.
-            </p>
-            <button
-              onClick={() => router.push('/profile')}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                color: 'white',
-                border: '2px solid rgba(255,255,255,0.3)',
-                borderRadius: '25px',
-                fontSize: '16px',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              Set Up Profile
-            </button>
-          </div>
-        )
-    }
+    router.push('/')
   }
 
   if (loading) {
     return (
-      <div style={{
-        display: 'flex',
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
         justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
       }}>
-        <div style={{
-          padding: '40px',
-          background: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          Loading...
-        </div>
+        <div style={{ fontSize: '18px', color: '#1e293b', fontWeight: '600' }}>Loading...</div>
       </div>
     )
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
-    }}>
-      <div style={{
-        background: 'white',
-        padding: '24px 32px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        marginBottom: '0'
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
+      {/* Header */}
+      <div style={{ 
+        background: 'white', 
+        padding: '24px 40px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        <div style={{ 
-          maxWidth: '1200px', 
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '32px',
-              fontWeight: '700',
-              background: 'linear-gradient(90deg, #1e293b 0%, #fb7185 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              margin: '0 0 8px 0'
-            }}>
-              Welcome to Nihon GO! World
-            </h1>
-            <p style={{
-              fontSize: '16px',
-              color: '#6b7280',
-              margin: '0'
-            }}>
-              Hello, {profile?.full_name || user?.email} • {getRoleDisplayName(profile?.role)}
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => router.push('/profile')}
-              style={{
-                padding: '12px 24px',
-                background: '#1e293b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
-            >
-              Edit Profile
-            </button>
-
-            <button
-              onClick={handleLogout}
-              style={{
-                padding: '12px 24px',
-                background: '#fb7185',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 2px 4px rgba(251,113,133,0.3)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#f43f5e'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#fb7185'}
-            >
-              Logout
-            </button>
-          </div>
+        <div>
+          <h1 style={{ 
+            margin: 0, 
+            fontSize: '32px', 
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent'
+          }}>
+            Welcome to Nihon GO! World
+          </h1>
+          <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '15px' }}>
+            Hello, {profile?.full_name || user?.email} • {profile?.role || 'User'}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => router.push('/profile')}
+            style={{
+              padding: '12px 24px',
+              background: '#1e293b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Edit Profile
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '12px 24px',
+              background: '#fb7185',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Logout
+          </button>
         </div>
       </div>
 
-      {renderDashboard()}
+      {/* Dashboard Content */}
+      {!profile || !profile.role ? (
+        <div style={{
+          maxWidth: '600px',
+          margin: '80px auto',
+          padding: '60px',
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '64px', marginBottom: '24px' }}>👋</div>
+          <h2 style={{ 
+            margin: '0 0 16px 0', 
+            fontSize: '28px', 
+            fontWeight: '700',
+            color: '#1e293b'
+          }}>
+            Complete Your Profile
+          </h2>
+          <p style={{ 
+            margin: '0 0 32px 0', 
+            color: '#64748b', 
+            fontSize: '16px',
+            lineHeight: '1.6'
+          }}>
+            Please set your role in your profile to access the dashboard features.
+          </p>
+          <button
+            onClick={() => router.push('/profile')}
+            style={{
+              padding: '16px 40px',
+              background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(251, 113, 133, 0.3)'
+            }}
+          >
+            Set Up Profile
+          </button>
+        </div>
+      ) : profile.role === 'student' ? (
+        <StudentDashboard user={user} profile={profile} />
+      ) : profile.role === 'teacher' ? (
+        <TeacherDashboard user={user} profile={profile} />
+      ) : (
+        <div style={{
+          maxWidth: '600px',
+          margin: '80px auto',
+          padding: '60px',
+          background: 'white',
+          borderRadius: '20px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '64px', marginBottom: '24px' }}>❓</div>
+          <h2 style={{ 
+            margin: '0 0 16px 0', 
+            fontSize: '28px', 
+            fontWeight: '700',
+            color: '#1e293b'
+          }}>
+            Unknown Role
+          </h2>
+          <p style={{ 
+            margin: '0 0 32px 0', 
+            color: '#64748b', 
+            fontSize: '16px'
+          }}>
+            Your profile role is not recognized. Please update your profile.
+          </p>
+          <button
+            onClick={() => router.push('/profile')}
+            style={{
+              padding: '16px 40px',
+              background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            Update Profile
+          </button>
+        </div>
+      )}
     </div>
   )
 }
