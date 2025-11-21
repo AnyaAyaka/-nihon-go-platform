@@ -44,17 +44,16 @@ export default function ProfilePage() {
     e.preventDefault()
     setSaving(true)
 
+    // Roleは変更不可なので、full_nameのみ更新
     const { error } = await supabase
       .from('profiles')
       .update({
-        full_name: fullName,
-        role: role,
-        updated_at: new Date()
+        full_name: fullName
       })
       .eq('user_id', user.id)
 
     if (error) {
-      alert('Error updating profile')
+      alert('Error updating profile: ' + error.message)
       console.error(error)
     } else {
       alert('Profile updated successfully!')
@@ -123,7 +122,8 @@ export default function ProfilePage() {
                 border: '2px solid #e2e8f0',
                 borderRadius: '8px',
                 background: '#f8fafc',
-                color: '#64748b'
+                color: '#64748b',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -147,7 +147,8 @@ export default function ProfilePage() {
                 padding: '12px 16px',
                 fontSize: '15px',
                 border: '2px solid #e2e8f0',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -160,23 +161,31 @@ export default function ProfilePage() {
               fontWeight: '600',
               color: '#1e293b'
             }}>
-              Role:
+              Role (cannot be changed):
             </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+            <input
+              type="text"
+              value={role || 'Not set'}
+              disabled
               style={{
                 width: '100%',
                 padding: '12px 16px',
                 fontSize: '15px',
                 border: '2px solid #e2e8f0',
-                borderRadius: '8px'
+                borderRadius: '8px',
+                background: '#f8fafc',
+                color: '#64748b',
+                textTransform: 'capitalize',
+                boxSizing: 'border-box'
               }}
-            >
-              <option value="">Select Role</option>
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-            </select>
+            />
+            <p style={{ 
+              margin: '8px 0 0 0', 
+              fontSize: '13px', 
+              color: '#64748b' 
+            }}>
+              Please contact admin to change your role
+            </p>
           </div>
 
           <button
