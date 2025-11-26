@@ -18,7 +18,6 @@ export default function BookingPage() {
   const [teachers, setTeachers] = useState([])
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [availableSlots, setAvailableSlots] = useState([])
-  const [debugInfo, setDebugInfo] = useState([])
   const router = useRouter()
 
   useEffect(() => {
@@ -26,12 +25,7 @@ export default function BookingPage() {
     fetchTeachers()
   }, [])
 
-  const addDebug = (msg) => {
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`])
-  }
-
   const checkUser = async () => {
-    addDebug('Starting checkUser')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       router.push('/auth')
@@ -39,7 +33,6 @@ export default function BookingPage() {
     }
 
     setUser(user)
-    addDebug(`User found: ${user.id}`)
 
     const { data: profileData } = await supabase
       .from('profiles')
@@ -48,7 +41,6 @@ export default function BookingPage() {
       .single()
 
     setProfile(profileData)
-    addDebug(`Profile loaded`)
 
     const { data: ticketsData } = await supabase
       .from('user_current_tickets')
@@ -58,58 +50,40 @@ export default function BookingPage() {
     if (ticketsData) {
       const validTickets = ticketsData.filter(t => t.remaining_tickets > 0)
       setAllTickets(validTickets)
-      addDebug(`Tickets: ${validTickets.length}`)
     }
   }
 
   const fetchTeachers = async () => {
-    addDebug('Fetching teachers...')
-    
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('profiles')
       .select('user_id, email, full_name, display_name, bio, lesson_types')
       .eq('role', 'teacher')
       .order('display_name')
 
-    addDebug(`Teachers query result: ${data?.length || 0} teachers, Error: ${error?.message || 'none'}`)
-    
-    if (data) {
-      data.forEach(t => {
-        addDebug(`Teacher: ${t.display_name}, lesson_types: ${JSON.stringify(t.lesson_types)}`)
-      })
-    }
-
     setTeachers(data || [])
   }
 
   const fetchAvailableSlots = async (teacherUserId) => {
-    addDebug(`Fetching slots for teacher: ${teacherUserId}`)
-    
-    // まずteachersテーブルからteacher.idを取得
     const { data: teacherData } = await supabase
       .from('teachers')
       .select('id')
       .eq('user_id', teacherUserId)
       .single()
     
-    if (!teacherData) {
-      addDebug('Teacher not found in teachers table')
-      return
-    }
+    if (!teacherData) return
 
-    addDebug(`Teacher ID: ${teacherData.id}`)
+    // 24時間後以降のスロットのみ取得
+    const minBookingTime = new Date()
+    minBookingTime.setHours(minBookingTime.getHours() + 24)
 
-    // teacher_availabilityから空き時間を取得
-    const { data: slots, error } = await supabase
+    const { data: slots } = await supabase
       .from('teacher_availability')
       .select('*')
       .eq('teacher_id', teacherData.id)
       .eq('is_available', true)
-      .gte('start_time_utc', new Date().toISOString())
+      .gte('start_time_utc', minBookingTime.toISOString())
       .order('start_time_utc')
-      .limit(20)
-
-    addDebug(`Slots found: ${slots?.length || 0}, Error: ${error?.message || 'none'}`)
+      .limit(50)
 
     if (slots) {
       setAvailableSlots(slots)
@@ -121,8 +95,7 @@ export default function BookingPage() {
     
     const result = allTickets.filter(ticket => {
       const lessonType = TICKET_TO_LESSON_TYPE[ticket.ticket_type]
-      const match = teacher.lesson_types.includes(lessonType)
-      return match
+      return teacher.lesson_types.includes(lessonType)
     })
     
     return result
@@ -130,13 +103,14 @@ export default function BookingPage() {
 
   const handleSelectTeacher = (teacher) => {
     setSelectedTeacher(teacher)
+    setAvailableSlots([])
     fetchAvailableSlots(teacher.user_id)
   }
 
   const formatSlotTime = (utcTime) => {
     const date = new Date(utcTime)
-    return date.toLocaleString('ja-JP', {
-      month: 'numeric',
+    return date.toLocaleString('en-GB', {
+      month: 'short',
       day: 'numeric',
       weekday: 'short',
       hour: '2-digit',
@@ -152,24 +126,6 @@ export default function BookingPage() {
       padding: '20px'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        
-        {/* Debug Info */}
-        <div style={{ 
-          background: '#1e293b',
-          color: '#10b981',
-          padding: '15px',
-          borderRadius: '10px',
-          marginBottom: '20px',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          maxHeight: '200px',
-          overflow: 'auto'
-        }}>
-          <strong>DEBUG LOG:</strong><br/>
-          {debugInfo.map((info, i) => (
-            <div key={i}>{info}</div>
-          ))}
-        </div>
 
         {!selectedTeacher ? (
           <div style={{ 
@@ -179,7 +135,10 @@ export default function BookingPage() {
             marginBottom: '30px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
           }}>
-            <h2>Choose Your Teacher ({teachers.length} found)</h2>
+            <h2>Choose Your Teacher</h2>
+            <p style={{ color: '#666', fontSize: '14px', marginTop: '5px' }}>
+              📅 Bookings must be made at least 24 hours in advance
+            </p>
             
             <div style={{ 
               display: 'grid', 
@@ -208,14 +167,14 @@ export default function BookingPage() {
                     <h3 style={{ margin: '0 0 10px 0' }}>
                       {teacher.display_name || teacher.full_name}
                     </h3>
-                    <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>
+                    <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>
                       {teacher.bio}
                     </p>
-                    <div style={{ fontSize: '12px', marginBottom: '5px' }}>
+                    <div style={{ fontSize: '12px', marginBottom: '5px', color: '#888' }}>
                       Lesson types: {teacher.lesson_types ? teacher.lesson_types.join(', ') : 'None'}
                     </div>
-                    <div style={{ fontSize: '12px', fontWeight: '600' }}>
-                      {canBook ? `✅ Can book (${availableTickets.length} compatible tickets)` : '❌ No compatible tickets'}
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: canBook ? '#10b981' : '#ef4444' }}>
+                      {canBook ? `✅ Available` : '❌ No compatible tickets'}
                     </div>
                   </div>
                 )
@@ -230,7 +189,10 @@ export default function BookingPage() {
             boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
           }}>
             <button 
-              onClick={() => setSelectedTeacher(null)}
+              onClick={() => {
+                setSelectedTeacher(null)
+                setAvailableSlots([])
+              }}
               style={{
                 padding: '10px 20px',
                 marginBottom: '20px',
@@ -238,14 +200,19 @@ export default function BookingPage() {
                 border: 'none',
                 background: '#6366f1',
                 color: 'white',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600'
               }}
             >
               ← Back to teachers
             </button>
             
-            <h2>{selectedTeacher.display_name || selectedTeacher.full_name}</h2>
-            <h3>Available Time Slots ({availableSlots.length})</h3>
+            <h2 style={{ marginBottom: '10px' }}>{selectedTeacher.display_name || selectedTeacher.full_name}</h2>
+            <h3 style={{ color: '#666', fontWeight: '400' }}>Available Time Slots</h3>
+            <p style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>
+              📅 Showing slots available 24+ hours from now
+            </p>
             
             <div style={{ 
               display: 'grid', 
@@ -264,13 +231,21 @@ export default function BookingPage() {
                     cursor: 'pointer',
                     transition: 'all 0.3s'
                   }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#6366f1'
+                    e.currentTarget.style.backgroundColor = '#f0f1ff'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e1e5e9'
+                    e.currentTarget.style.backgroundColor = 'white'
+                  }}
                 >
-                  <div style={{ fontWeight: '600' }}>
+                  <div style={{ fontWeight: '600', fontSize: '16px' }}>
                     {formatSlotTime(slot.start_time_utc)}
                   </div>
                   <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                    {new Date(slot.start_time_utc).toLocaleDateString('en-US', { 
-                      month: 'short', 
+                    {new Date(slot.start_time_utc).toLocaleDateString('en-GB', { 
+                      month: 'long', 
                       day: 'numeric',
                       year: 'numeric'
                     })}
