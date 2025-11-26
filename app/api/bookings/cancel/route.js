@@ -45,13 +45,24 @@ export async function POST(request) {
 
     // チケット返却（24時間前までの場合のみ）
     if (refundTicket) {
-      await supabase
+      // 現在のチケット数を取得
+      const { data: currentTicket } = await supabase
         .from('user_current_tickets')
-        .update({ 
-          remaining_tickets: supabase.raw('remaining_tickets + 1')
-        })
+        .select('remaining_tickets')
         .eq('user_id', booking.student_id)
         .eq('ticket_type', booking.lesson_type)
+        .single()
+
+      if (currentTicket) {
+        // チケット数を1増やす
+        await supabase
+          .from('user_current_tickets')
+          .update({ 
+            remaining_tickets: currentTicket.remaining_tickets + 1
+          })
+          .eq('user_id', booking.student_id)
+          .eq('ticket_type', booking.lesson_type)
+      }
     }
 
     return NextResponse.json({
