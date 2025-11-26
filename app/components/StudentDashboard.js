@@ -218,26 +218,6 @@ export default function StudentDashboard({ user, profile }) {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {selectedLesson.zoom_link && (
-                
-                  href={selectedLesson.zoom_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    background: '#0ea5e9',
-                    color: 'white',
-                    textAlign: 'center',
-                    textDecoration: 'none',
-                    fontSize: '16px',
-                    fontWeight: '600'
-                  }}
-                >
-                  Join Zoom Meeting
-                </a>
-              )}
-              
               <button
                 onClick={handleRescheduleLesson}
                 disabled={isCancelling}
