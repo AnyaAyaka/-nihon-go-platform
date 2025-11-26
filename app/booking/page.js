@@ -120,7 +120,6 @@ export default function BookingPage() {
     setIsBooking(true)
 
     try {
-      // 利用可能なチケットから最初のものを使用
       const availableTickets = getAvailableTicketsForTeacher(selectedTeacher)
       if (availableTickets.length === 0) {
         alert('No compatible tickets available')
@@ -142,14 +141,9 @@ export default function BookingPage() {
 
       if (response.ok) {
         alert('✅ Booking confirmed successfully!')
-        setShowConfirmDialog(false)
-        setSelectedSlot(null)
         
-        // チケット情報を再取得
-        await checkUser()
-        
-        // スロット情報を再取得
-        await fetchAvailableSlots(selectedTeacher.user_id)
+        // ダッシュボードにリダイレクト
+        router.push('/dashboard')
       } else {
         alert(`❌ Booking failed: ${result.error}`)
       }
