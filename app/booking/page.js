@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const TICKET_TO_LESSON_TYPE = {
-  'online_trial': 'online',
+  'online_trial': 'online_trial',  // 修正！
   'online': 'online',
   'in_person': 'in_person',
   'premium': 'premium'
@@ -40,7 +40,6 @@ export default function BookingPage() {
     }
 
     setUser(user)
-    console.log('User:', user.id)
 
     const { data: profileData } = await supabase
       .from('profiles')
@@ -49,20 +48,14 @@ export default function BookingPage() {
       .single()
 
     setProfile(profileData)
-    console.log('Profile:', profileData)
 
-    // 全チケットタイプを取得
-    const { data: ticketsData, error: ticketsError } = await supabase
+    const { data: ticketsData } = await supabase
       .from('user_current_tickets')
       .select('*')
       .eq('user_id', user.id)
 
-    console.log('Tickets data:', ticketsData)
-    console.log('Tickets error:', ticketsError)
-
     if (ticketsData) {
       const validTickets = ticketsData.filter(t => t.remaining_tickets > 0)
-      console.log('Valid tickets:', validTickets)
       setAllTickets(validTickets)
     }
     
@@ -70,24 +63,17 @@ export default function BookingPage() {
   }
 
   const fetchTeachers = async () => {
-    const { data, error } = await supabase
-      .from('teachers')
+    const { data } = await supabase
+      .from('profiles')
       .select('*')
-      .eq('is_active', true)
+      .eq('role', 'teacher')
       .order('display_name')
 
-    console.log('Teachers:', data)
-    console.log('Teachers error:', error)
-
-    if (error) {
-      console.error('Error fetching teachers:', error)
-    } else {
-      setTeachers(data || [])
-    }
+    setTeachers(data || [])
   }
 
   const fetchTeacherAvailability = async (teacherId) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('teacher_availability')
       .select('*')
       .eq('teacher_id', teacherId)
@@ -95,11 +81,7 @@ export default function BookingPage() {
       .gte('start_time_utc', new Date().toISOString())
       .order('start_time_utc')
 
-    if (error) {
-      console.error('Error fetching availability:', error)
-    } else {
-      setTeacherAvailability(data || [])
-    }
+    setTeacherAvailability(data || [])
   }
 
   const getAvailableTicketsForTeacher = (teacher) => {
@@ -122,7 +104,7 @@ export default function BookingPage() {
       setSelectedTicketType(availableTickets[0].ticket_type)
     }
     
-    fetchTeacherAvailability(teacher.id)
+    fetchTeacherAvailability(teacher.user_id)
   }
 
   const generateTimeSlotsFromAvailability = (availability) => {
@@ -192,7 +174,7 @@ export default function BookingPage() {
         .from('lesson_bookings')
         .insert({
           student_id: user.id,
-          teacher_id: selectedTeacher.id,
+          teacher_id: selectedTeacher.user_id,
           lesson_start_utc: lessonStartUTC,
           lesson_end_utc: lessonEndUTC,
           student_timezone: userTimezone,
@@ -209,8 +191,7 @@ export default function BookingPage() {
       const { error: updateError } = await supabase
         .from('user_current_tickets')
         .update({
-          remaining_tickets: selectedTicket.remaining_tickets - 1,
-          updated_at: new Date().toISOString()
+          remaining_tickets: selectedTicket.remaining_tickets - 1
         })
         .eq('user_id', user.id)
         .eq('ticket_type', selectedTicketType)
@@ -218,30 +199,7 @@ export default function BookingPage() {
       if (updateError) throw updateError
 
       alert('Lesson booked successfully!')
-
-      try {
-        await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: user.email,
-            subject: 'Lesson Booking Confirmation - Nihon GO!',
-            html: `
-              <h2>Lesson Booking Confirmed</h2>
-              <p>Your Japanese lesson has been booked successfully!</p>
-              <p><strong>Teacher:</strong> ${selectedTeacher.display_name}</p>
-              <p><strong>Time:</strong> ${selectedTimeSlot.start.toLocaleString()}</p>
-              <p>You will receive a Zoom link closer to the lesson time.</p>
-            `
-          })
-        })
-      } catch (emailError) {
-        console.error('Error sending email:', emailError)
-      }
-
-      setSelectedDate('')
-      setSelectedTimeSlot(null)
-      checkUser()
+      router.push('/dashboard')
 
     } catch (error) {
       console.error('Error booking lesson:', error)
@@ -256,9 +214,6 @@ export default function BookingPage() {
   const hasTickets = allTickets.length > 0
   const availableTimeSlots = selectedDate && selectedTeacher ? 
     generateTimeSlotsFromAvailability(teacherAvailability) : []
-
-  console.log('Has tickets:', hasTickets)
-  console.log('All tickets:', allTickets)
 
   return (
     <div style={{ 
@@ -295,24 +250,18 @@ export default function BookingPage() {
           </div>
           
           <div style={{ textAlign: 'right' }}>
-            {allTickets.length > 0 ? (
-              allTickets.map(ticket => (
-                <div key={ticket.ticket_type} style={{ 
-                  padding: '10px 20px',
-                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                  color: 'white',
-                  borderRadius: '25px',
-                  marginBottom: '10px',
-                  fontSize: '14px'
-                }}>
-                  {ticket.ticket_type.replace('_', ' ')}: {ticket.remaining_tickets} tickets
-                </div>
-              ))
-            ) : (
-              <div style={{ padding: '10px 20px', color: '#999', fontSize: '14px' }}>
-                No tickets found (check console)
+            {allTickets.map(ticket => (
+              <div key={ticket.ticket_type} style={{ 
+                padding: '10px 20px',
+                background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                color: 'white',
+                borderRadius: '25px',
+                marginBottom: '10px',
+                fontSize: '14px'
+              }}>
+                {ticket.ticket_type.replace('_', ' ')}: {ticket.remaining_tickets} tickets
               </div>
-            )}
+            ))}
             <button 
               onClick={() => router.push('/dashboard')}
               style={{ 
@@ -341,7 +290,7 @@ export default function BookingPage() {
           }}>
             <h3 style={{ color: '#e74c3c', marginBottom: '15px' }}>No Tickets Available</h3>
             <p style={{ color: '#666', marginBottom: '20px' }}>
-              You need at least 1 ticket to book a lesson. (Check browser console for debug info)
+              You need at least 1 ticket to book a lesson.
             </p>
             <button 
               onClick={() => router.push('/subscription')}
@@ -383,15 +332,15 @@ export default function BookingPage() {
                   
                   return (
                     <div 
-                      key={teacher.id}
+                      key={teacher.user_id}
                       onClick={() => canBook && selectTeacher(teacher)}
                       style={{ 
                         padding: '20px',
-                        border: selectedTeacher?.id === teacher.id ? '3px solid #667eea' : '2px solid #e1e5e9',
+                        border: selectedTeacher?.user_id === teacher.user_id ? '3px solid #667eea' : '2px solid #e1e5e9',
                         borderRadius: '15px',
                         cursor: canBook ? 'pointer' : 'not-allowed',
                         transition: 'all 0.3s ease',
-                        backgroundColor: selectedTeacher?.id === teacher.id ? '#f8f9ff' : 
+                        backgroundColor: selectedTeacher?.user_id === teacher.user_id ? '#f8f9ff' : 
                                         canBook ? 'white' : '#f5f5f5',
                         opacity: canBook ? 1 : 0.6
                       }}
