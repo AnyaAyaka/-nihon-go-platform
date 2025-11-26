@@ -32,19 +32,27 @@ export async function POST(request) {
       .from('teacher_availability')
       .update({ is_available: false })
       .eq('id', slotId)
-      .eq('is_available', true) // 二重予約防止
+      .eq('is_available', true)
 
     if (slotError) {
       return NextResponse.json({ error: 'Failed to book slot' }, { status: 500 })
     }
 
-    // 3. 予約レコードを作成
+    // 3. スロット情報とZoomリンクを取得
     const { data: slotData } = await supabase
       .from('teacher_availability')
       .select('start_time_utc, end_time_utc, teacher_id')
       .eq('id', slotId)
       .single()
 
+    // 講師のZoomリンクを取得
+    const { data: teacherData } = await supabase
+      .from('teachers')
+      .select('zoom_link')
+      .eq('id', slotData.teacher_id)
+      .single()
+
+    // 4. 予約レコードを作成（Zoomリンク付き）
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .insert({
@@ -54,7 +62,8 @@ export async function POST(request) {
         lesson_type: ticketType,
         start_time: slotData.start_time_utc,
         end_time: slotData.end_time_utc,
-        status: 'confirmed'
+        status: 'confirmed',
+        zoom_link: teacherData?.zoom_link || null
       })
       .select()
       .single()
@@ -69,7 +78,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
     }
 
-    // 4. チケットを減算
+    // 5. チケットを減算
     await supabase
       .from('user_current_tickets')
       .update({ remaining_tickets: ticket.remaining_tickets - 1 })
