@@ -32,15 +32,18 @@ export default function StudentDashboard({ user, profile }) {
 
   const fetchUpcomingLessons = async () => {
     const { data, error } = await supabase
-      .from('lesson_bookings')
+      .from('bookings')
       .select(`
         *,
-        teachers (display_name, timezone)
+        teachers:teacher_id (
+          display_name,
+          user_id
+        )
       `)
       .eq('student_id', user.id)
-      .eq('status', 'scheduled')
-      .gte('lesson_start_utc', new Date().toISOString())
-      .order('lesson_start_utc', { ascending: true })
+      .eq('status', 'confirmed')
+      .gte('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true })
       .limit(5)
 
     if (error) {
@@ -125,24 +128,53 @@ export default function StudentDashboard({ user, profile }) {
                   fontSize: '16px',
                   marginBottom: '8px'
                 }}>
-                  {lesson.teachers?.display_name}
+                  {lesson.teachers?.display_name || 'Teacher'}
                 </div>
                 <div style={{ 
                   color: '#475569', 
                   fontSize: '14px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '6px',
+                  marginBottom: '8px'
                 }}>
                   <span>🗓️</span>
-                  {new Date(lesson.lesson_start_utc).toLocaleString('en-GB', {
+                  {new Date(lesson.start_time).toLocaleString('en-GB', {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'short',
                     hour: '2-digit',
-                    minute: '2-digit'
+                    minute: '2-digit',
+                    timeZone: 'Europe/London'
                   })}
                 </div>
+                <div style={{ 
+                  color: '#64748b', 
+                  fontSize: '13px',
+                  textTransform: 'capitalize'
+                }}>
+                  {lesson.lesson_type?.replace('_', ' ')}
+                </div>
+                {lesson.zoom_link && (
+                  <a 
+                    href={lesson.zoom_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      marginTop: '12px',
+                      padding: '8px 16px',
+                      background: '#0ea5e9',
+                      color: 'white',
+                      textDecoration: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Join Zoom
+                  </a>
+                )}
               </div>
             ))}
           </div>
