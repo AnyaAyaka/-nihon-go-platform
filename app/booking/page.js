@@ -18,6 +18,9 @@ export default function BookingPage() {
   const [teachers, setTeachers] = useState([])
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [availableSlots, setAvailableSlots] = useState([])
+  const [selectedSlot, setSelectedSlot] = useState(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [isBooking, setIsBooking] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -72,7 +75,6 @@ export default function BookingPage() {
     
     if (!teacherData) return
 
-    // 24時間後以降のスロットのみ取得
     const minBookingTime = new Date()
     minBookingTime.setHours(minBookingTime.getHours() + 24)
 
@@ -107,6 +109,57 @@ export default function BookingPage() {
     fetchAvailableSlots(teacher.user_id)
   }
 
+  const handleSlotClick = (slot) => {
+    setSelectedSlot(slot)
+    setShowConfirmDialog(true)
+  }
+
+  const handleConfirmBooking = async () => {
+    if (!selectedSlot || !selectedTeacher || !user) return
+
+    setIsBooking(true)
+
+    try {
+      // 利用可能なチケットから最初のものを使用
+      const availableTickets = getAvailableTicketsForTeacher(selectedTeacher)
+      if (availableTickets.length === 0) {
+        alert('No compatible tickets available')
+        return
+      }
+
+      const response = await fetch('/api/bookings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slotId: selectedSlot.id,
+          teacherUserId: selectedTeacher.user_id,
+          studentUserId: user.id,
+          ticketType: availableTickets[0].ticket_type
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert('✅ Booking confirmed successfully!')
+        setShowConfirmDialog(false)
+        setSelectedSlot(null)
+        
+        // チケット情報を再取得
+        await checkUser()
+        
+        // スロット情報を再取得
+        await fetchAvailableSlots(selectedTeacher.user_id)
+      } else {
+        alert(`❌ Booking failed: ${result.error}`)
+      }
+    } catch (error) {
+      alert(`❌ Error: ${error.message}`)
+    } finally {
+      setIsBooking(false)
+    }
+  }
+
   const formatSlotTime = (utcTime) => {
     const date = new Date(utcTime)
     return date.toLocaleString('en-GB', {
@@ -126,6 +179,91 @@ export default function BookingPage() {
       padding: '20px'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+
+        {/* 確認ダイアログ */}
+        {showConfirmDialog && selectedSlot && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '20px',
+              padding: '30px',
+              maxWidth: '500px',
+              width: '90%'
+            }}>
+              <h2 style={{ marginTop: 0 }}>Confirm Booking</h2>
+              
+              <div style={{ margin: '20px 0', padding: '20px', background: '#f5f7fa', borderRadius: '10px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <strong>Teacher:</strong> {selectedTeacher.display_name || selectedTeacher.full_name}
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <strong>Time:</strong> {formatSlotTime(selectedSlot.start_time_utc)}
+                </div>
+                <div>
+                  <strong>Date:</strong> {new Date(selectedSlot.start_time_utc).toLocaleDateString('en-GB', { 
+                    month: 'long', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </div>
+              </div>
+
+              <p style={{ color: '#666', fontSize: '14px' }}>
+                One ticket will be deducted from your account.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  onClick={() => {
+                    setShowConfirmDialog(false)
+                    setSelectedSlot(null)
+                  }}
+                  disabled={isBooking}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '2px solid #e1e5e9',
+                    background: 'white',
+                    cursor: isBooking ? 'not-allowed' : 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBooking}
+                  disabled={isBooking}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: isBooking ? '#ccc' : '#6366f1',
+                    color: 'white',
+                    cursor: isBooking ? 'not-allowed' : 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  {isBooking ? 'Booking...' : 'Confirm Booking'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {!selectedTeacher ? (
           <div style={{ 
@@ -223,6 +361,7 @@ export default function BookingPage() {
               {availableSlots.map((slot) => (
                 <div 
                   key={slot.id}
+                  onClick={() => handleSlotClick(slot)}
                   style={{ 
                     padding: '15px',
                     border: '2px solid #e1e5e9',
