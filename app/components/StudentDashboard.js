@@ -7,7 +7,10 @@ export default function StudentDashboard({ user, profile }) {
   const router = useRouter()
   const [allTickets, setAllTickets] = useState([])
   const [upcomingLessons, setUpcomingLessons] = useState([])
+  const [selectedLesson, setSelectedLesson] = useState(null)
+  const [showLessonDialog, setShowLessonDialog] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isCancelling, setIsCancelling] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -54,6 +57,72 @@ export default function StudentDashboard({ user, profile }) {
     setLoading(false)
   }
 
+  const canCancelOrReschedule = (lessonStartTime) => {
+    const now = new Date()
+    const lessonTime = new Date(lessonStartTime)
+    const hoursUntilLesson = (lessonTime - now) / (1000 * 60 * 60)
+    return hoursUntilLesson >= 24
+  }
+
+  const handleCancelLesson = async () => {
+    if (!selectedLesson) return
+    
+    const canCancel = canCancelOrReschedule(selectedLesson.start_time)
+    
+    const confirmMessage = canCancel
+      ? 'Are you sure you want to cancel this lesson? Your ticket will be refunded.'
+      : 'This lesson is within 24 hours. Cancelling now will result in 100% charge (no ticket refund). Continue?'
+    
+    if (!confirm(confirmMessage)) return
+
+    setIsCancelling(true)
+
+    try {
+      const response = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: selectedLesson.id,
+          refundTicket: canCancel
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(canCancel ? '✅ Lesson cancelled. Ticket refunded.' : '✅ Lesson cancelled. No refund (within 24h).')
+        setShowLessonDialog(false)
+        setSelectedLesson(null)
+        await fetchUpcomingLessons()
+        await fetchCurrentTickets()
+      } else {
+        alert(`❌ Cancellation failed: ${result.error}`)
+      }
+    } catch (error) {
+      alert(`❌ Error: ${error.message}`)
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
+  const handleRescheduleLesson = () => {
+    if (!selectedLesson) return
+    
+    const canReschedule = canCancelOrReschedule(selectedLesson.start_time)
+    
+    if (!canReschedule) {
+      alert('Cannot reschedule within 24 hours of the lesson.')
+      return
+    }
+
+    // キャンセル後に予約ページへ
+    if (confirm('To reschedule, we will cancel this lesson (ticket will be refunded) and redirect you to the booking page. Continue?')) {
+      handleCancelLesson().then(() => {
+        router.push('/booking')
+      })
+    }
+  }
+
   const totalTickets = allTickets.reduce((sum, ticket) => sum + ticket.remaining_tickets, 0)
 
   const handleContactUs = () => {
@@ -76,6 +145,157 @@ export default function StudentDashboard({ user, profile }) {
       }}>
         Student Dashboard
       </h2>
+
+      {/* レッスン詳細ダイアログ */}
+      {showLessonDialog && selectedLesson && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '20px',
+            padding: '30px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginTop: 0 }}>Lesson Details</h2>
+            
+            <div style={{ margin: '20px 0', padding: '20px', background: '#f5f7fa', borderRadius: '10px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <strong>Teacher:</strong> {selectedLesson.teachers?.display_name}
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <strong>Date & Time:</strong><br/>
+                {new Date(selectedLesson.start_time).toLocaleString('en-GB', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  timeZone: 'Europe/London'
+                })}
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <strong>Lesson Type:</strong> {selectedLesson.lesson_type?.replace('_', ' ')}
+              </div>
+              {selectedLesson.zoom_link && (
+                <div>
+                  <strong>Zoom Link:</strong><br/>
+                  <a 
+                    href={selectedLesson.zoom_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: '#0ea5e9',
+                      textDecoration: 'underline',
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    {selectedLesson.zoom_link}
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {canCancelOrReschedule(selectedLesson.start_time) ? (
+              <p style={{ color: '#10b981', fontSize: '14px', marginBottom: '20px' }}>
+                ✅ You can reschedule or cancel this lesson for free (24+ hours before start time)
+              </p>
+            ) : (
+              <p style={{ color: '#ef4444', fontSize: '14px', marginBottom: '20px' }}>
+                ⚠️ This lesson is within 24 hours. Cancellation will result in 100% charge (no ticket refund).
+              </p>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {selectedLesson.zoom_link && (
+                
+                  href={selectedLesson.zoom_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    background: '#0ea5e9',
+                    color: 'white',
+                    textAlign: 'center',
+                    textDecoration: 'none',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Join Zoom Meeting
+                </a>
+              )}
+              
+              <button
+                onClick={handleRescheduleLesson}
+                disabled={isCancelling}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #6366f1',
+                  background: 'white',
+                  color: '#6366f1',
+                  cursor: isCancelling ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Reschedule
+              </button>
+
+              <button
+                onClick={handleCancelLesson}
+                disabled={isCancelling}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #ef4444',
+                  background: 'white',
+                  color: '#ef4444',
+                  cursor: isCancelling ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel Lesson'}
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowLessonDialog(false)
+                  setSelectedLesson(null)
+                }}
+                disabled={isCancelling}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #e1e5e9',
+                  background: 'white',
+                  cursor: isCancelling ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Lessons Banner */}
       <div style={{
@@ -104,14 +324,19 @@ export default function StudentDashboard({ user, profile }) {
           }}>
             {upcomingLessons.map((lesson) => (
               <div 
-                key={lesson.id} 
+                key={lesson.id}
+                onClick={() => {
+                  setSelectedLesson(lesson)
+                  setShowLessonDialog(true)
+                }}
                 style={{ 
                   minWidth: '280px',
                   padding: '20px', 
                   background: 'linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%)',
                   borderRadius: '12px',
                   border: '2px solid #e0f2fe',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = '#38bdf8'
@@ -155,26 +380,6 @@ export default function StudentDashboard({ user, profile }) {
                 }}>
                   {lesson.lesson_type?.replace('_', ' ')}
                 </div>
-                {lesson.zoom_link && (
-                  <a 
-                    href={lesson.zoom_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-block',
-                      marginTop: '12px',
-                      padding: '8px 16px',
-                      background: '#0ea5e9',
-                      color: 'white',
-                      textDecoration: 'none',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    Join Zoom
-                  </a>
-                )}
               </div>
             ))}
           </div>
