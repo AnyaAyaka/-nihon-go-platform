@@ -115,7 +115,6 @@ export default function StudentDashboard({ user, profile }) {
       return
     }
 
-    // キャンセル後に予約ページへ
     if (confirm('To reschedule, we will cancel this lesson (ticket will be refunded) and redirect you to the booking page. Continue?')) {
       handleCancelLesson().then(() => {
         router.push('/booking')
@@ -146,7 +145,6 @@ export default function StudentDashboard({ user, profile }) {
         Student Dashboard
       </h2>
 
-      {/* レッスン詳細ダイアログ */}
       {showLessonDialog && selectedLesson && (
         <div style={{
           position: 'fixed',
@@ -297,7 +295,6 @@ export default function StudentDashboard({ user, profile }) {
         </div>
       )}
 
-      {/* Upcoming Lessons Banner */}
       <div style={{
         background: 'white',
         borderRadius: '16px',
@@ -390,14 +387,12 @@ export default function StudentDashboard({ user, profile }) {
         )}
       </div>
       
-      {/* 3 Cards */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
         gap: '30px' 
       }}>
         
-        {/* My Tickets Card */}
         <div 
           style={{
             background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
@@ -470,7 +465,6 @@ export default function StudentDashboard({ user, profile }) {
           </button>
         </div>
 
-        {/* Book Lesson Card */}
         <div 
           style={{
             background: 'white',
@@ -520,7 +514,6 @@ export default function StudentDashboard({ user, profile }) {
           </button>
         </div>
 
-        {/* Contact Us Card */}
         <div 
           style={{
             background: 'white',
