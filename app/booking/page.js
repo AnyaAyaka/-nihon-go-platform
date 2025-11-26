@@ -141,8 +141,6 @@ export default function BookingPage() {
 
       if (response.ok) {
         alert('✅ Booking confirmed successfully!')
-        
-        // ダッシュボードにリダイレクト
         router.push('/dashboard')
       } else {
         alert(`❌ Booking failed: ${result.error}`)
@@ -394,6 +392,29 @@ export default function BookingPage() {
             )}
           </div>
         )}
+
+        {/* Back to Dashboard ボタン */}
+        <div style={{ marginTop: '30px', textAlign: 'center' }}>
+          <button
+            onClick={() => router.push('/dashboard')}
+            style={{
+              padding: '12px 32px',
+              background: '#1e293b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+            onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
       </div>
     </div>
   )
