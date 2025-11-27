@@ -84,6 +84,18 @@ export async function POST(request) {
       .update({ remaining_tickets: ticket.remaining_tickets - 1 })
       .eq('id', ticket.id)
 
+    // 6. メール送信（非同期、エラーでも予約は成功）
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL.replace('supabase.co', 'vercel.app')}/api/send-booking-confirmation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id })
+      })
+    } catch (emailError) {
+      console.error('Failed to send confirmation emails:', emailError)
+      // メール送信失敗しても予約は成功とする
+    }
+
     return NextResponse.json({
       success: true,
       booking,
