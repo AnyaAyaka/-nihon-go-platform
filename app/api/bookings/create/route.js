@@ -78,18 +78,30 @@ export async function POST(request) {
       .eq('id', ticket.id)
 
     // メール送信
+    console.log('📧 Attempting to send confirmation emails...')
+    console.log('Booking ID:', booking.id)
+    
     try {
-      const baseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}` 
-        : 'https://nihon-go-platform.vercel.app'
+      const emailUrl = 'https://nihon-go-platform.vercel.app/api/send-booking-confirmation'
+      console.log('Email API URL:', emailUrl)
       
-      await fetch(`${baseUrl}/api/send-booking-confirmation`, {
+      const emailResponse = await fetch(emailUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId: booking.id })
       })
+      
+      console.log('Email API status:', emailResponse.status)
+      const emailResult = await emailResponse.json()
+      console.log('Email API response:', emailResult)
+      
+      if (!emailResponse.ok) {
+        console.error('❌ Email sending failed:', emailResult)
+      } else {
+        console.log('✅ Emails sent successfully')
+      }
     } catch (emailError) {
-      console.error('Failed to send confirmation emails:', emailError)
+      console.error('❌ Failed to send confirmation emails:', emailError)
     }
 
     return NextResponse.json({
