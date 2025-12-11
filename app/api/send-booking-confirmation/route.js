@@ -8,13 +8,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+const SITE_URL = 'https://app.nihongo-world.com'
+
 export async function POST(request) {
   try {
     const { bookingId } = await request.json()
 
     console.log('📧 Sending confirmation email for booking:', bookingId)
 
-    // 予約情報を取得
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .select('*')
@@ -26,31 +27,23 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    console.log('Booking found:', booking)
-
-    // 講師情報を取得
     const { data: teacher } = await supabase
       .from('teachers')
       .select('display_name, user_id')
       .eq('id', booking.teacher_id)
       .single()
 
-    // 講師のメールアドレスを取得
     const { data: teacherProfile } = await supabase
       .from('profiles')
       .select('email')
       .eq('user_id', teacher.user_id)
       .single()
 
-    // 生徒のメールアドレスを取得
     const { data: studentProfile } = await supabase
       .from('profiles')
       .select('email, full_name')
       .eq('user_id', booking.student_id)
       .single()
-
-    console.log('Teacher:', teacher?.display_name, teacherProfile?.email)
-    console.log('Student:', studentProfile?.full_name, studentProfile?.email)
 
     const lessonDate = new Date(booking.start_time).toLocaleString('en-GB', {
       weekday: 'long',
@@ -63,7 +56,7 @@ export async function POST(request) {
     })
 
     // 生徒にメール送信
-    const studentEmailResult = await resend.emails.send({
+    await resend.emails.send({
       from: 'Nihon GO! World <noreply@nihongo-world.com>',
       to: studentProfile.email,
       subject: '✅ Lesson Booking Confirmed - Nihon GO! World',
@@ -82,15 +75,17 @@ export async function POST(request) {
         
         <p><strong>Important:</strong> You can cancel or reschedule this lesson up to 24 hours before the start time for a full ticket refund.</p>
         
+        <p style="margin: 24px 0;">
+          <a href="${SITE_URL}/dashboard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View My Dashboard</a>
+        </p>
+        
         <p>See you in class!<br>
         Nihon GO! World Team</p>
       `
     })
 
-    console.log('Student email sent:', studentEmailResult)
-
     // 講師にメール送信
-    const teacherEmailResult = await resend.emails.send({
+    await resend.emails.send({
       from: 'Nihon GO! World <noreply@nihongo-world.com>',
       to: teacherProfile.email,
       subject: '📅 New Lesson Booking - Nihon GO! World',
@@ -107,12 +102,14 @@ export async function POST(request) {
           ${booking.zoom_link ? `<li><strong>Zoom Link:</strong> <a href="${booking.zoom_link}">${booking.zoom_link}</a></li>` : ''}
         </ul>
         
+        <p style="margin: 24px 0;">
+          <a href="${SITE_URL}/dashboard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View My Dashboard</a>
+        </p>
+        
         <p>Best regards,<br>
         Nihon GO! World Team</p>
       `
     })
-
-    console.log('Teacher email sent:', teacherEmailResult)
 
     return NextResponse.json({ success: true, message: 'Emails sent successfully' })
 
@@ -121,4 +118,3 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
-// trigger deploy
