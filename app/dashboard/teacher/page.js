@@ -14,12 +14,14 @@ const DAYS = [
   { name: 'Sunday', value: 0 }
 ]
 
-export default function TeacherDashboard() {
+export default function TeacherDashboardPage() {
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [teacher, setTeacher] = useState(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [savingHours, setSavingHours] = useState(false)
+  const [upcomingLessons, setUpcomingLessons] = useState([])
   const [workingHours, setWorkingHours] = useState(
     DAYS.map(day => ({
       day: day.value,
@@ -33,13 +35,6 @@ export default function TeacherDashboard() {
 
   useEffect(() => {
     checkUser()
-    
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('calendar_connected') === 'true') {
-      alert('✅ Google Calendar connected successfully!')
-      window.history.replaceState({}, '', '/dashboard/teacher')
-      checkUser()
-    }
   }, [])
 
   const checkUser = async () => {
@@ -51,6 +46,16 @@ export default function TeacherDashboard() {
 
     setUser(user)
 
+    // プロフィール取得
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    setProfile(profileData)
+
+    // 講師情報取得
     const { data: teacherData } = await supabase
       .from('teachers')
       .select('*')
@@ -59,31 +64,37 @@ export default function TeacherDashboard() {
 
     if (!teacherData) {
       alert('Teacher profile not found')
-      router.push('/dashboard')
+      router.push('/')
       return
     }
 
     setTeacher(teacherData)
     
-    await fetchWorkingHours(user.id)
+    // Working Hours取得
+    await fetchWorkingHours(teacherData.id)
+    
+    // Upcoming Lessons取得
+    await fetchUpcomingLessons(teacherData.id)
     
     setLoading(false)
   }
 
-  const fetchWorkingHours = async (userId) => {
+  const fetchWorkingHours = async (teacherId) => {
     try {
-      const response = await fetch(`/api/teacher/working-hours?teacher_id=${userId}`)
-      const data = await response.json()
-      
-      if (data.workingHours && data.workingHours.length > 0) {
+      const { data, error } = await supabase
+        .from('teacher_working_hours')
+        .select('*')
+        .eq('teacher_id', teacherId)
+
+      if (data && data.length > 0) {
         const updatedHours = workingHours.map(day => {
-          const savedHour = data.workingHours.find(h => h.day_of_week === day.day)
+          const savedHour = data.find(h => h.day_of_week === day.day)
           if (savedHour) {
             return {
               ...day,
-              enabled: true,
-              startTime: savedHour.start_time.slice(0, 5),
-              endTime: savedHour.end_time.slice(0, 5)
+              enabled: savedHour.is_active,
+              startTime: savedHour.start_time?.slice(0, 5) || '09:00',
+              endTime: savedHour.end_time?.slice(0, 5) || '17:00'
             }
           }
           return day
@@ -95,28 +106,60 @@ export default function TeacherDashboard() {
     }
   }
 
+  const fetchUpcomingLessons = async (teacherId) => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          profiles:student_id (full_name, email)
+        `)
+        .eq('teacher_id', teacherId)
+        .eq('status', 'confirmed')
+        .gte('start_time', new Date().toISOString())
+        .order('start_time', { ascending: true })
+        .limit(10)
+
+      if (!error) {
+        setUpcomingLessons(data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching lessons:', error)
+    }
+  }
+
   const saveWorkingHours = async () => {
     setSavingHours(true)
     try {
-      const response = await fetch('/api/teacher/working-hours', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacherId: user.id,
-          workingHours: workingHours
-        })
-      })
+      // 既存のworking hoursを削除
+      await supabase
+        .from('teacher_working_hours')
+        .delete()
+        .eq('teacher_id', teacher.id)
 
-      const data = await response.json()
+      // 有効な日のみ保存
+      const hoursToSave = workingHours
+        .filter(day => day.enabled)
+        .map(day => ({
+          teacher_id: teacher.id,
+          day_of_week: day.day,
+          start_time: day.startTime + ':00',
+          end_time: day.endTime + ':00',
+          is_active: true
+        }))
 
-      if (data.success) {
-        alert('✅ Working hours saved successfully!')
-      } else {
-        alert('❌ Failed to save working hours: ' + data.error)
+      if (hoursToSave.length > 0) {
+        const { error } = await supabase
+          .from('teacher_working_hours')
+          .insert(hoursToSave)
+
+        if (error) throw error
       }
+
+      alert('✅ Working hours saved!')
     } catch (error) {
       console.error('Error saving working hours:', error)
-      alert('Failed to save working hours')
+      alert('❌ Failed to save: ' + error.message)
     } finally {
       setSavingHours(false)
     }
@@ -138,18 +181,8 @@ export default function TeacherDashboard() {
     )
   }
 
-  const connectGoogleCalendar = async () => {
-    try {
-      const response = await fetch(`/api/auth/google?teacher_id=${user.id}`)
-      const data = await response.json()
-      
-      if (data.authUrl) {
-        window.location.href = data.authUrl
-      }
-    } catch (error) {
-      console.error('Error connecting calendar:', error)
-      alert('Failed to connect Google Calendar')
-    }
+  const connectGoogleCalendar = () => {
+    window.location.href = '/api/calendar/auth'
   }
 
   const syncCalendar = async () => {
@@ -172,7 +205,7 @@ export default function TeacherDashboard() {
       if (data.success) {
         alert(`✅ Calendar synced! ${data.slotsCreated} availability slots created.`)
       } else {
-        alert('❌ Failed to sync calendar: ' + data.error)
+        alert('❌ Failed to sync: ' + data.error)
       }
     } catch (error) {
       console.error('Error syncing calendar:', error)
@@ -182,75 +215,235 @@ export default function TeacherDashboard() {
     }
   }
 
-  if (loading) return <div>Loading...</div>
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
 
-  const isCalendarConnected = teacher?.google_access_token && teacher?.google_refresh_token
-  const timezoneName = teacher?.timezone?.split('/')[1] || 'London'
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/London'
+    })
+  }
+
+  if (loading) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+      }}>
+        <div style={{ fontSize: '18px', color: '#1e293b', fontWeight: '600' }}>Loading...</div>
+      </div>
+    )
+  }
+
+  const isCalendarConnected = teacher?.google_refresh_token
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-      padding: '20px'
-    }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        
-        {/* Header */}
-        <div style={{ 
-          background: 'white',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-        }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
+      {/* Header */}
+      <div style={{ 
+        background: 'white', 
+        padding: '24px 40px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div>
           <h1 style={{ 
+            margin: 0, 
             fontSize: '32px', 
             fontWeight: '700',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
             WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            margin: '0 0 10px 0'
+            WebkitTextFillColor: 'transparent'
           }}>
-            👨‍🏫 Teacher Dashboard
+            Welcome to Nihon GO! World
           </h1>
-          <p style={{ margin: 0, color: '#666' }}>
-            Welcome, {teacher.display_name}!
+          <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '15px' }}>
+            Hello, {profile?.full_name || teacher?.display_name} • Teacher
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => router.push('/profile')}
+            style={{
+              padding: '12px 24px',
+              background: '#1e293b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Edit Profile
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '12px 24px',
+              background: '#fb7185',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
+        <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px', color: '#1e293b' }}>
+          👨‍🏫 Teacher Dashboard
+        </h2>
+
+        {/* Upcoming Lessons */}
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+        }}>
+          <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
+            📚 Upcoming Lessons ({upcomingLessons.length})
+          </h3>
+          
+          {upcomingLessons.length === 0 ? (
+            <p style={{ color: '#64748b' }}>No upcoming lessons scheduled.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {upcomingLessons.map((lesson) => (
+                <div
+                  key={lesson.id}
+                  style={{
+                    padding: '16px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <p style={{ fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>
+                        {lesson.profiles?.full_name || 'Student'}
+                      </p>
+                      <p style={{ color: '#64748b', fontSize: '14px' }}>
+                        {lesson.profiles?.email}
+                      </p>
+                      <p style={{ color: '#3b82f6', fontSize: '14px', marginTop: '8px' }}>
+                        {formatDateTime(lesson.start_time)}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '4px 12px',
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        {lesson.lesson_type?.replace('_', ' ')}
+                      </span>
+                      {lesson.zoom_link && (
+                        <a
+                          href={lesson.zoom_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'block',
+                            marginTop: '8px',
+                            padding: '8px 16px',
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            borderRadius: '6px',
+                            textDecoration: 'none',
+                            fontSize: '14px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          Join Zoom
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Zoom Link */}
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+        }}>
+          <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
+            🔗 Your Zoom Link
+          </h3>
+          {teacher?.zoom_link ? (
+            <div>
+              <p style={{ color: '#64748b', marginBottom: '8px' }}>Your personal meeting room:</p>
+              <a
+                href={teacher.zoom_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#3b82f6', wordBreak: 'break-all' }}
+              >
+                {teacher.zoom_link}
+              </a>
+            </div>
+          ) : (
+            <p style={{ color: '#64748b' }}>No Zoom link configured. Please contact admin.</p>
+          )}
         </div>
 
         {/* Working Hours */}
-        <div style={{ 
+        <div style={{
           background: 'white',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
-          <h2 style={{ marginBottom: '10px', color: '#333' }}>
+          <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
             🕒 Working Hours
-          </h2>
-          <p style={{ 
-            color: '#667eea', 
-            fontSize: '14px', 
-            fontWeight: '600',
-            marginBottom: '20px' 
-          }}>
-            Your Local Time: {timezoneName}
-          </p>
-          <p style={{ color: '#666', marginBottom: '25px' }}>
-            Set your availability for each day of the week. Only these hours will be available for booking.
+          </h3>
+          <p style={{ color: '#64748b', marginBottom: '20px' }}>
+            Set your availability for each day of the week.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {workingHours.map((day) => (
               <div key={day.day} style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '15px',
-                padding: '15px',
-                background: day.enabled ? '#f8f9ff' : '#f5f5f5',
+                padding: '12px 16px',
+                background: day.enabled ? '#f0f9ff' : '#f8fafc',
                 borderRadius: '10px',
-                border: day.enabled ? '2px solid #667eea' : '1px solid #e1e5e9'
+                border: day.enabled ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                flexWrap: 'wrap'
               }}>
                 <input
                   type="checkbox"
@@ -259,9 +452,9 @@ export default function TeacherDashboard() {
                   style={{ width: '20px', height: '20px', cursor: 'pointer' }}
                 />
                 <span style={{ 
-                  width: '120px', 
+                  width: '100px', 
                   fontWeight: '600',
-                  color: day.enabled ? '#333' : '#999'
+                  color: day.enabled ? '#1e293b' : '#94a3b8'
                 }}>
                   {day.name}
                 </span>
@@ -273,20 +466,20 @@ export default function TeacherDashboard() {
                       onChange={(e) => updateTime(day.day, 'startTime', e.target.value)}
                       style={{ 
                         padding: '8px',
-                        borderRadius: '8px',
-                        border: '1px solid #e1e5e9',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0',
                         fontSize: '14px'
                       }}
                     />
-                    <span style={{ color: '#666' }}>to</span>
+                    <span style={{ color: '#64748b' }}>to</span>
                     <input
                       type="time"
                       value={day.endTime}
                       onChange={(e) => updateTime(day.day, 'endTime', e.target.value)}
                       style={{ 
                         padding: '8px',
-                        borderRadius: '8px',
-                        border: '1px solid #e1e5e9',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0',
                         fontSize: '14px'
                       }}
                     />
@@ -301,98 +494,93 @@ export default function TeacherDashboard() {
             disabled={savingHours}
             style={{ 
               marginTop: '20px',
-              padding: '15px 30px',
-              background: savingHours ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              padding: '12px 24px',
+              background: savingHours ? '#94a3b8' : '#3b82f6',
               color: 'white',
               border: 'none',
-              borderRadius: '25px',
-              fontSize: '16px',
+              borderRadius: '8px',
+              fontSize: '14px',
               fontWeight: '600',
-              cursor: savingHours ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+              cursor: savingHours ? 'not-allowed' : 'pointer'
             }}
           >
             {savingHours ? 'Saving...' : '💾 Save Working Hours'}
           </button>
         </div>
 
-        {/* Google Calendar Integration */}
-        <div style={{ 
+        {/* Google Calendar */}
+        <div style={{
           background: 'white',
-          borderRadius: '20px',
-          padding: '30px',
-          marginBottom: '30px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          borderRadius: '16px',
+          padding: '24px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
-          <h2 style={{ marginBottom: '20px', color: '#333' }}>
-            📅 Google Calendar Integration
-          </h2>
+          <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
+            📅 Google Calendar
+          </h3>
 
-          {!isCalendarConnected ? (
+          {isCalendarConnected ? (
             <div>
-              <p style={{ color: '#666', marginBottom: '20px' }}>
-                Connect your Google Calendar to automatically sync your busy times. 
-                Your working hours will be checked against your calendar to prevent double bookings.
+              <p style={{ color: '#10b981', marginBottom: '16px' }}>
+                ✅ Connected to Google Calendar
               </p>
-              <button 
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={syncCalendar}
+                  disabled={syncing}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: syncing ? '#94a3b8' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    cursor: syncing ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {syncing ? 'Syncing...' : '🔄 Sync Now'}
+                </button>
+                <button
+                  onClick={connectGoogleCalendar}
+                  style={{
+                    padding: '12px 24px',
+                    backgroundColor: 'white',
+                    color: '#1e293b',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔗 Reconnect
+                </button>
+              </div>
+              <p style={{ marginTop: '12px', color: '#64748b', fontSize: '14px' }}>
+                Sync your calendar to update your availability for the next 2 weeks.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p style={{ color: '#64748b', marginBottom: '16px' }}>
+                Connect your Google Calendar to automatically sync your availability.
+              </p>
+              <button
                 onClick={connectGoogleCalendar}
-                style={{ 
-                  padding: '15px 30px',
-                  background: 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)',
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#4285f4',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '25px',
-                  fontSize: '16px',
+                  borderRadius: '8px',
                   fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(66, 133, 244, 0.3)'
+                  cursor: 'pointer'
                 }}
               >
                 🔗 Connect Google Calendar
               </button>
             </div>
-          ) : (
-            <div>
-              <div style={{ 
-                padding: '15px',
-                background: '#e8f5e9',
-                borderRadius: '10px',
-                marginBottom: '20px',
-                border: '2px solid #4CAF50'
-              }}>
-                <p style={{ margin: 0, color: '#2e7d32', fontWeight: '600' }}>
-                  ✅ Google Calendar Connected
-                </p>
-                <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '14px' }}>
-                  Calendar ID: {teacher.google_calendar_id || 'primary'}
-                </p>
-              </div>
-
-              <button 
-                onClick={syncCalendar}
-                disabled={syncing}
-                style={{ 
-                  padding: '15px 30px',
-                  background: syncing ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '25px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: syncing ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-                }}
-              >
-                {syncing ? '🔄 Syncing...' : '🔄 Sync Calendar Now'}
-              </button>
-
-              <p style={{ marginTop: '15px', color: '#666', fontSize: '14px' }}>
-                Sync your calendar to update your availability for the next 2 weeks based on your working hours and Google Calendar events.
-              </p>
-            </div>
           )}
         </div>
-
       </div>
     </div>
   )
