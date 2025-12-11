@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import StudentDashboard from '../components/StudentDashboard'
-import TeacherDashboard from '../components/TeacherDashboard'
 
 export default function Dashboard() {
   const [user, setUser] = useState(null)
@@ -32,11 +31,11 @@ export default function Dashboard() {
       .eq('user_id', user.id)
       .single()
 
-    console.log('Profile Data:', profileData)
-    console.log('Profile Role:', profileData?.role)
-    console.log('Role Type:', typeof profileData?.role)
-    console.log('Role Length:', profileData?.role?.length)
-    console.log('Profile Error:', error)
+    // 講師の場合は /dashboard/teacher にリダイレクト
+    if (profileData?.role === 'teacher') {
+      router.push('/dashboard/teacher')
+      return
+    }
 
     setProfile(profileData)
     setLoading(false)
@@ -168,8 +167,6 @@ export default function Dashboard() {
         </div>
       ) : profile.role === 'student' ? (
         <StudentDashboard user={user} profile={profile} />
-      ) : profile.role === 'teacher' ? (
-        <TeacherDashboard user={user} profile={profile} />
       ) : (
         <div style={{
           maxWidth: '600px',
