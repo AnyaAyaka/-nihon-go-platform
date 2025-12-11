@@ -393,22 +393,6 @@ export default function TeacherDashboard() {
           )}
         </div>
 
-        {/* Back Button */}
-        <button 
-          onClick={() => router.push('/dashboard')}
-          style={{ 
-            padding: '12px 24px',
-            background: 'white',
-            color: '#667eea',
-            border: '2px solid #667eea',
-            borderRadius: '20px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
-        >
-          ← Back to Dashboard
-        </button>
       </div>
     </div>
   )
