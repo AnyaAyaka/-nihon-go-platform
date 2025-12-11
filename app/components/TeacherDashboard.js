@@ -61,18 +61,17 @@ export default function TeacherDashboard({ user, profile }) {
     setSyncing(true)
     setSyncStatus(null)
     try {
-      const response = await fetch('/api/sync-calendar')
+      const response = await fetch('/api/calendar/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId: user.id })
+      })
       const data = await response.json()
       
       if (data.success) {
-        const myResult = data.results.find(r => r.teacher === teacher?.display_name)
-        if (myResult?.status === 'success') {
-          setSyncStatus({ type: 'success', message: `Synced ${myResult.slotsFound} slots from Google Calendar` })
-        } else if (myResult?.status === 'error') {
-          setSyncStatus({ type: 'error', message: myResult.reason })
-        }
+        setSyncStatus({ type: 'success', message: `Synced ${data.slotsCreated} available slots from Google Calendar` })
       } else {
-        setSyncStatus({ type: 'error', message: 'Sync failed' })
+        setSyncStatus({ type: 'error', message: data.error || 'Sync failed' })
       }
     } catch (error) {
       setSyncStatus({ type: 'error', message: error.message })
