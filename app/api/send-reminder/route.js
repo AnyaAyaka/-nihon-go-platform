@@ -71,23 +71,7 @@ export async function GET(request) {
             from: 'Nihon GO! World <noreply@nihongo-world.com>',
             to: studentProfile.email,
             subject: 'Lesson Reminder - Tomorrow! - Nihon GO! World',
-            html: `
-              <h2>Your Japanese lesson is tomorrow!</h2>
-              <p>Dear ${studentProfile.full_name || 'Student'},</p>
-              <p>This is a friendly reminder that you have a Japanese lesson scheduled for tomorrow.</p>
-              <h3>Lesson Details:</h3>
-              <ul>
-                <li><strong>Teacher:</strong> ${teacher?.display_name}</li>
-                <li><strong>Date and Time:</strong> ${lessonDate} (London time)</li>
-                <li><strong>Lesson Type:</strong> ${booking.lesson_type?.replace('_', ' ')}</li>
-                ${zoomLink ? `<li><strong>Zoom Link:</strong> <a href="${zoomLink}">${zoomLink}</a></li>` : ''}
-              </ul>
-              <p>Need to reschedule? You can cancel or reschedule up to 24 hours before the lesson start time.</p>
-              <p style="margin: 24px 0;">
-                <a href="${SITE_URL}/dashboard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View My Dashboard</a>
-              </p>
-              <p>See you in class!<br>Nihon GO! World Team</p>
-            `
+            html: '<h2>Your Japanese lesson is tomorrow!</h2><p>Dear ' + (studentProfile.full_name || 'Student') + ',</p><p>This is a friendly reminder that you have a Japanese lesson scheduled for tomorrow.</p><h3>Lesson Details:</h3><ul><li><strong>Teacher:</strong> ' + teacher?.display_name + '</li><li><strong>Date and Time:</strong> ' + lessonDate + ' (London time)</li><li><strong>Lesson Type:</strong> ' + (booking.lesson_type?.replace('_', ' ') || '') + '</li>' + (zoomLink ? '<li><strong>Zoom Link:</strong> <a href="' + zoomLink + '">' + zoomLink + '</a></li>' : '') + '</ul><p>See you in class!<br>Nihon GO! World Team</p>'
           })
         }
 
@@ -96,22 +80,7 @@ export async function GET(request) {
             from: 'Nihon GO! World <noreply@nihongo-world.com>',
             to: teacherProfile.email,
             subject: 'Lesson Reminder - Tomorrow! - Nihon GO! World',
-            html: `
-              <h2>You have a lesson tomorrow!</h2>
-              <p>Dear ${teacher?.display_name},</p>
-              <p>This is a reminder that you have a lesson scheduled for tomorrow.</p>
-              <h3>Lesson Details:</h3>
-              <ul>
-                <li><strong>Student:</strong> ${studentProfile.full_name || 'Student'} (${studentProfile.email})</li>
-                <li><strong>Date and Time:</strong> ${lessonDate} (London time)</li>
-                <li><strong>Lesson Type:</strong> ${booking.lesson_type?.replace('_', ' ')}</li>
-                ${zoomLink ? `<li><strong>Zoom Link:</strong> <a href="${zoomLink}">${zoomLink}</a></li>` : ''}
-              </ul>
-              <p style="margin: 24px 0;">
-                <a href="${SITE_URL}/dashboard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">View My Dashboard</a>
-              </p>
-              <p>Best regards,<br>Nihon GO! World Team</p>
-            `
+            html: '<h2>You have a lesson tomorrow!</h2><p>Dear ' + teacher?.display_name + ',</p><p>This is a reminder that you have a lesson scheduled for tomorrow.</p><h3>Lesson Details:</h3><ul><li><strong>Student:</strong> ' + (studentProfile.full_name || 'Student') + ' (' + studentProfile.email + ')</li><li><strong>Date and Time:</strong> ' + lessonDate + ' (London time)</li><li><strong>Lesson Type:</strong> ' + (booking.lesson_type?.replace('_', ' ') || '') + '</li>' + (zoomLink ? '<li><strong>Zoom Link:</strong> <a href="' + zoomLink + '">' + zoomLink + '</a></li>' : '') + '</ul><p>Best regards,<br>Nihon GO! World Team</p>'
           })
         }
 
@@ -122,16 +91,11 @@ export async function GET(request) {
 
         sentCount++
       } catch (error) {
-        console.error('Error sending reminder for booking:', error)
+        console.error('Error sending reminder:', error)
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: `Sent ${sentCount} reminders`,
-      count: sentCount 
-    })
-
+    return NextResponse.json({ success: true, message: 'Sent ' + sentCount + ' reminders', count: sentCount })
   } catch (error) {
     console.error('Reminder error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
