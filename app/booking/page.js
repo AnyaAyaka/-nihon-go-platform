@@ -18,6 +18,7 @@ export default function BookingPage() {
   const [teachers, setTeachers] = useState([])
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [availableSlots, setAvailableSlots] = useState([])
+  const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
@@ -85,7 +86,7 @@ export default function BookingPage() {
       .eq('is_available', true)
       .gte('start_time_utc', minBookingTime.toISOString())
       .order('start_time_utc')
-      .limit(50)
+      .limit(100)
 
     if (slots) {
       setAvailableSlots(slots)
@@ -106,6 +107,7 @@ export default function BookingPage() {
   const handleSelectTeacher = (teacher) => {
     setSelectedTeacher(teacher)
     setAvailableSlots([])
+    setSelectedDate(null)
     fetchAvailableSlots(teacher.user_id)
   }
 
@@ -152,16 +154,53 @@ export default function BookingPage() {
     }
   }
 
-  const formatSlotTime = (utcTime) => {
-    const date = new Date(utcTime)
-    return date.toLocaleString('en-GB', {
-      month: 'short',
-      day: 'numeric',
-      weekday: 'short',
+  // 日付ごとにスロットをグループ化
+  const getSlotsByDate = () => {
+    const grouped = {}
+    availableSlots.forEach(slot => {
+      const date = new Date(slot.start_time_utc).toLocaleDateString('en-GB', {
+        timeZone: 'Europe/London'
+      })
+      if (!grouped[date]) {
+        grouped[date] = []
+      }
+      grouped[date].push(slot)
+    })
+    return grouped
+  }
+
+  // 日付の配列を取得（2週間分）
+  const getDatesArray = () => {
+    const dates = []
+    const today = new Date()
+    today.setDate(today.getDate() + 1) // 24時間後から
+    
+    for (let i = 0; i < 14; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + i)
+      dates.push(date)
+    }
+    return dates
+  }
+
+  const slotsByDate = getSlotsByDate()
+  const datesArray = getDatesArray()
+
+  const formatTime = (utcTime) => {
+    return new Date(utcTime).toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: 'Europe/London'
     })
+  }
+
+  const formatDateKey = (date) => {
+    return date.toLocaleDateString('en-GB', { timeZone: 'Europe/London' })
+  }
+
+  const getSlotsForDate = (date) => {
+    const dateKey = formatDateKey(date)
+    return slotsByDate[dateKey] || []
   }
 
   return (
@@ -200,14 +239,16 @@ export default function BookingPage() {
                   <strong>Teacher:</strong> {selectedTeacher.display_name || selectedTeacher.full_name}
                 </div>
                 <div style={{ marginBottom: '10px' }}>
-                  <strong>Time:</strong> {formatSlotTime(selectedSlot.start_time_utc)}
-                </div>
-                <div>
                   <strong>Date:</strong> {new Date(selectedSlot.start_time_utc).toLocaleDateString('en-GB', { 
+                    weekday: 'long',
                     month: 'long', 
                     day: 'numeric',
-                    year: 'numeric'
+                    year: 'numeric',
+                    timeZone: 'Europe/London'
                   })}
+                </div>
+                <div>
+                  <strong>Time:</strong> {formatTime(selectedSlot.start_time_utc)} (London time)
                 </div>
               </div>
 
@@ -322,6 +363,7 @@ export default function BookingPage() {
               onClick={() => {
                 setSelectedTeacher(null)
                 setAvailableSlots([])
+                setSelectedDate(null)
               }}
               style={{
                 padding: '10px 20px',
@@ -338,52 +380,128 @@ export default function BookingPage() {
               ← Back to teachers
             </button>
             
-            <h2 style={{ marginBottom: '10px' }}>{selectedTeacher.display_name || selectedTeacher.full_name}</h2>
-            <h3 style={{ color: '#666', fontWeight: '400' }}>Available Time Slots</h3>
-            <p style={{ color: '#888', fontSize: '14px', marginTop: '5px' }}>
-              📅 Showing slots available 24+ hours from now
+            <h2 style={{ marginBottom: '5px' }}>{selectedTeacher.display_name || selectedTeacher.full_name}</h2>
+            <p style={{ color: '#888', fontSize: '14px', margin: '0 0 20px 0' }}>
+              📅 Select a date to see available times (London timezone)
             </p>
-            
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-              gap: '15px',
-              marginTop: '20px'
+
+            {/* 日付選択カレンダー */}
+            <div style={{
+              display: 'flex',
+              gap: '10px',
+              overflowX: 'auto',
+              paddingBottom: '15px',
+              marginBottom: '20px'
             }}>
-              {availableSlots.map((slot) => (
-                <div 
-                  key={slot.id}
-                  onClick={() => handleSlotClick(slot)}
-                  style={{ 
-                    padding: '15px',
-                    border: '2px solid #e1e5e9',
-                    borderRadius: '10px',
-                    backgroundColor: 'white',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#6366f1'
-                    e.currentTarget.style.backgroundColor = '#f0f1ff'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#e1e5e9'
-                    e.currentTarget.style.backgroundColor = 'white'
-                  }}
-                >
-                  <div style={{ fontWeight: '600', fontSize: '16px' }}>
-                    {formatSlotTime(slot.start_time_utc)}
+              {datesArray.map((date) => {
+                const dateSlots = getSlotsForDate(date)
+                const hasSlots = dateSlots.length > 0
+                const isSelected = selectedDate && formatDateKey(selectedDate) === formatDateKey(date)
+                
+                return (
+                  <div
+                    key={date.toISOString()}
+                    onClick={() => hasSlots && setSelectedDate(date)}
+                    style={{
+                      minWidth: '80px',
+                      padding: '15px 10px',
+                      borderRadius: '12px',
+                      textAlign: 'center',
+                      cursor: hasSlots ? 'pointer' : 'not-allowed',
+                      background: isSelected ? '#6366f1' : hasSlots ? '#f0f1ff' : '#f5f5f5',
+                      color: isSelected ? 'white' : hasSlots ? '#333' : '#999',
+                      border: isSelected ? '2px solid #6366f1' : '2px solid transparent',
+                      transition: 'all 0.2s',
+                      opacity: hasSlots ? 1 : 0.5
+                    }}
+                  >
+                    <div style={{ fontSize: '12px', fontWeight: '500', marginBottom: '5px' }}>
+                      {date.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'Europe/London' })}
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: '700' }}>
+                      {date.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' })}
+                    </div>
+                    <div style={{ fontSize: '12px', marginTop: '5px' }}>
+                      {date.toLocaleDateString('en-GB', { month: 'short', timeZone: 'Europe/London' })}
+                    </div>
+                    {hasSlots && (
+                      <div style={{ 
+                        fontSize: '10px', 
+                        marginTop: '8px',
+                        color: isSelected ? 'rgba(255,255,255,0.8)' : '#6366f1',
+                        fontWeight: '600'
+                      }}>
+                        {dateSlots.length} slot{dateSlots.length > 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                    {new Date(slot.start_time_utc).toLocaleDateString('en-GB', { 
-                      month: 'long', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+
+            {/* 選択した日付の時間スロット */}
+            {selectedDate && (
+              <div style={{
+                background: '#f8f9fa',
+                borderRadius: '15px',
+                padding: '20px'
+              }}>
+                <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>
+                  {selectedDate.toLocaleDateString('en-GB', { 
+                    weekday: 'long',
+                    month: 'long', 
+                    day: 'numeric',
+                    timeZone: 'Europe/London'
+                  })}
+                </h3>
+                
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '10px'
+                }}>
+                  {getSlotsForDate(selectedDate).map((slot) => (
+                    <button
+                      key={slot.id}
+                      onClick={() => handleSlotClick(slot)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '10px',
+                        border: '2px solid #6366f1',
+                        background: 'white',
+                        color: '#6366f1',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#6366f1'
+                        e.currentTarget.style.color = 'white'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'white'
+                        e.currentTarget.style.color = '#6366f1'
+                      }}
+                    >
+                      {formatTime(slot.start_time_utc)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!selectedDate && availableSlots.length > 0 && (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '30px', 
+                color: '#666',
+                background: '#f8f9fa',
+                borderRadius: '15px'
+              }}>
+                👆 Select a date above to see available times
+              </div>
+            )}
 
             {availableSlots.length === 0 && (
               <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
