@@ -11,6 +11,8 @@ const TICKET_TO_LESSON_TYPE = {
   'premium': 'premium'
 }
 
+const LESSON_DURATION_MINUTES = 55
+
 export default function BookingPage() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -132,10 +134,12 @@ export default function BookingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          slotId: selectedSlot.id,
+          slotId: selectedSlot.originalSlotId,
           teacherUserId: selectedTeacher.user_id,
           studentUserId: user.id,
-          ticketType: availableTickets[0].ticket_type
+          ticketType: availableTickets[0].ticket_type,
+          startTime: selectedSlot.start_time_utc,
+          endTime: selectedSlot.end_time_utc
         })
       })
 
@@ -154,10 +158,47 @@ export default function BookingPage() {
     }
   }
 
+  // 大きなスロットを55分刻みに分割
+  const splitSlotsInto55MinuteChunks = (slots) => {
+    const splitSlots = []
+    
+    slots.forEach(slot => {
+      const startTime = new Date(slot.start_time_utc)
+      const endTime = new Date(slot.end_time_utc)
+      
+      let currentStart = new Date(startTime)
+      
+      while (currentStart < endTime) {
+        const currentEnd = new Date(currentStart.getTime() + LESSON_DURATION_MINUTES * 60 * 1000)
+        
+        // スロットの終了時間を超えないようにする
+        if (currentEnd <= endTime) {
+          splitSlots.push({
+            id: `${slot.id}-${currentStart.getTime()}`,
+            originalSlotId: slot.id,
+            teacher_id: slot.teacher_id,
+            start_time_utc: currentStart.toISOString(),
+            end_time_utc: currentEnd.toISOString(),
+            is_available: slot.is_available
+          })
+        }
+        
+        // 次のスロットは1時間後（55分レッスン + 5分休憩）
+        currentStart = new Date(currentStart.getTime() + 60 * 60 * 1000)
+      }
+    })
+    
+    return splitSlots
+  }
+
   // 日付ごとにスロットをグループ化
   const getSlotsByDate = () => {
+    console.log("Original slots:", availableSlots.length)
+    const splitSlots = splitSlotsInto55MinuteChunks(availableSlots)
+    console.log("Split slots:", splitSlots.length)
     const grouped = {}
-    availableSlots.forEach(slot => {
+    
+    splitSlots.forEach(slot => {
       const date = new Date(slot.start_time_utc).toLocaleDateString('en-GB', {
         timeZone: 'Europe/London'
       })
@@ -247,8 +288,11 @@ export default function BookingPage() {
                     timeZone: 'Europe/London'
                   })}
                 </div>
-                <div>
-                  <strong>Time:</strong> {formatTime(selectedSlot.start_time_utc)} (London time)
+                <div style={{ marginBottom: '10px' }}>
+                  <strong>Time:</strong> {formatTime(selectedSlot.start_time_utc)} - {formatTime(selectedSlot.end_time_utc)} (London time)
+                </div>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  Duration: {LESSON_DURATION_MINUTES} minutes
                 </div>
               </div>
 
@@ -382,7 +426,7 @@ export default function BookingPage() {
             
             <h2 style={{ marginBottom: '5px' }}>{selectedTeacher.display_name || selectedTeacher.full_name}</h2>
             <p style={{ color: '#888', fontSize: '14px', margin: '0 0 20px 0' }}>
-              📅 Select a date to see available times (London timezone)
+              📅 Select a date to see available times (London timezone) • Each lesson is {LESSON_DURATION_MINUTES} minutes
             </p>
 
             {/* 日付選択カレンダー */}
