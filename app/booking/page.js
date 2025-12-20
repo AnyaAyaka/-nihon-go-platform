@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const TICKET_TO_LESSON_TYPE = {
   'online_trial': 'online_trial',
@@ -25,6 +25,8 @@ export default function BookingPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const locationFilter = searchParams.get('location')
 
   useEffect(() => {
     checkUser()
@@ -62,11 +64,15 @@ export default function BookingPage() {
   const fetchTeachers = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('user_id, email, full_name, display_name, bio, lesson_types')
+      .select('user_id, email, full_name, display_name, bio, lesson_types, location')
       .eq('role', 'teacher')
       .order('display_name')
 
-    setTeachers(data || [])
+    let filteredData = data || []
+    if (locationFilter) {
+      filteredData = filteredData.filter(t => t.location === locationFilter)
+    }
+    setTeachers(filteredData)
   }
 
   const fetchAvailableSlots = async (teacherUserId) => {
