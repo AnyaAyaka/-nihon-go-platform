@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -13,7 +13,7 @@ const TICKET_TO_LESSON_TYPE = {
 
 const LESSON_DURATION_MINUTES = 55
 
-export default function BookingPage() {
+function BookingContent() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [allTickets, setAllTickets] = useState([])
@@ -164,7 +164,6 @@ export default function BookingPage() {
     }
   }
 
-  // 大きなスロットを55分刻みに分割
   const splitSlotsInto55MinuteChunks = (slots) => {
     const splitSlots = []
     
@@ -177,7 +176,6 @@ export default function BookingPage() {
       while (currentStart < endTime) {
         const currentEnd = new Date(currentStart.getTime() + LESSON_DURATION_MINUTES * 60 * 1000)
         
-        // スロットの終了時間を超えないようにする
         if (currentEnd <= endTime) {
           splitSlots.push({
             id: `${slot.id}-${currentStart.getTime()}`,
@@ -189,7 +187,6 @@ export default function BookingPage() {
           })
         }
         
-        // 次のスロットは1時間後（55分レッスン + 5分休憩）
         currentStart = new Date(currentStart.getTime() + 60 * 60 * 1000)
       }
     })
@@ -197,11 +194,8 @@ export default function BookingPage() {
     return splitSlots
   }
 
-  // 日付ごとにスロットをグループ化
   const getSlotsByDate = () => {
-    console.log("Original slots:", availableSlots.length)
     const splitSlots = splitSlotsInto55MinuteChunks(availableSlots)
-    console.log("Split slots:", splitSlots.length)
     const grouped = {}
     
     splitSlots.forEach(slot => {
@@ -216,11 +210,10 @@ export default function BookingPage() {
     return grouped
   }
 
-  // 日付の配列を取得（2週間分）
   const getDatesArray = () => {
     const dates = []
     const today = new Date()
-    today.setDate(today.getDate() + 1) // 24時間後から
+    today.setDate(today.getDate() + 1)
     
     for (let i = 0; i < 14; i++) {
       const date = new Date(today)
@@ -258,7 +251,6 @@ export default function BookingPage() {
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
-        {/* 確認ダイアログ */}
         {showConfirmDialog && selectedSlot && (
           <div style={{
             position: 'fixed',
@@ -435,7 +427,6 @@ export default function BookingPage() {
               📅 Select a date to see available times (London timezone) • Each lesson is {LESSON_DURATION_MINUTES} minutes
             </p>
 
-            {/* 日付選択カレンダー */}
             <div style={{
               display: 'flex',
               gap: '10px',
@@ -489,7 +480,6 @@ export default function BookingPage() {
               })}
             </div>
 
-            {/* 選択した日付の時間スロット */}
             {selectedDate && (
               <div style={{
                 background: '#f8f9fa',
@@ -561,7 +551,6 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Back to Dashboard ボタン */}
         <div style={{ marginTop: '30px', textAlign: 'center' }}>
           <button
             onClick={() => router.push('/dashboard')}
@@ -585,5 +574,13 @@ export default function BookingPage() {
 
       </div>
     </div>
+  )
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>}>
+      <BookingContent />
+    </Suspense>
   )
 }
