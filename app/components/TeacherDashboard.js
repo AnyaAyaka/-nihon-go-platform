@@ -54,7 +54,7 @@ export default function TeacherDashboard({ user, profile }) {
   }
 
   const handleConnectGoogle = () => {
-    window.location.href = '/api/calendar/auth'
+    window.location.href = `/api/calendar/auth?teacher_id=${user.id}`
   }
 
   const handleSyncCalendar = async () => {
