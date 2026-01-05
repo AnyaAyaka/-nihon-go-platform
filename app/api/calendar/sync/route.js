@@ -49,13 +49,33 @@ export async function POST(request) {
     const timeMin = new Date().toISOString()
     const timeMax = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    const freeBusyData = await getFreeBusyInfo(
-      teacher.google_calendar_id || 'primary',
-      timeMin,
-      timeMax,
-      teacher.google_access_token,
-      teacher.google_refresh_token
-    )
+    let freeBusyData
+    try {
+      freeBusyData = await getFreeBusyInfo(
+        teacher.google_calendar_id || 'primary',
+        timeMin,
+        timeMax,
+        teacher.google_access_token,
+        teacher.google_refresh_token
+      )
+    } catch (error) {
+      if (error.message?.includes('invalid_grant') || error.code === 401) {
+        // トークンが無効 - 再認証が必要
+        await supabase
+          .from('teachers')
+          .update({
+            google_access_token: null,
+            google_refresh_token: null
+          })
+          .eq('id', teacher.id)
+        
+        return NextResponse.json({ 
+          error: 'reconnect_required',
+          message: 'Google Calendar connection expired. Please reconnect.'
+        }, { status: 401 })
+      }
+      throw error
+    }
 
     await supabase
       .from('teacher_availability')
@@ -109,7 +129,6 @@ export async function POST(request) {
               is_available: true
             }
             
-            console.log('Adding slot:', slot)
             availabilitySlots.push(slot)
           }
           
@@ -127,13 +146,10 @@ export async function POST(request) {
             is_available: true
           }
           
-          console.log('Adding slot:', slot)
           availabilitySlots.push(slot)
         }
       })
     }
-
-    console.log('Total slots to insert:', availabilitySlots.length)
 
     if (availabilitySlots.length > 0) {
       const { error: insertError } = await supabase
@@ -142,7 +158,6 @@ export async function POST(request) {
 
       if (insertError) {
         console.error('Error inserting availability:', insertError)
-        console.error('First slot example:', availabilitySlots[0])
         return NextResponse.json({ error: 'Failed to save availability' }, { status: 500 })
       }
     }
