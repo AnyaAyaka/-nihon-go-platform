@@ -182,7 +182,7 @@ export default function TeacherDashboardPage() {
   }
 
   const connectGoogleCalendar = () => {
-    window.location.href = `/api/calendar/auth?teacher_id=${user.id}`
+    window.location.href = '/api/calendar/auth'
   }
 
   const syncCalendar = async () => {
