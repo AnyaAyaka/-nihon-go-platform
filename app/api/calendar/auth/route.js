@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { google } from 'googleapis'
-import { cookies } from 'next/headers'
 
 export async function GET(request) {
+  const { searchParams } = new URL(request.url)
+  const teacherId = searchParams.get('teacher_id')
+  
+  if (!teacherId) {
+    return NextResponse.redirect(new URL('/dashboard/teacher?error=no_teacher_id', request.url))
+  }
+
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -17,7 +23,8 @@ export async function GET(request) {
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent'
+    prompt: 'consent',
+    state: teacherId
   })
 
   return NextResponse.redirect(url)
