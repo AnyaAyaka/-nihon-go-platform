@@ -76,6 +76,11 @@ export default function TeacherDashboardPage() {
     // Upcoming Lessons取得
     await fetchUpcomingLessons(teacherData.id)
     
+    // 自動Sync（カレンダー連携済みの場合）
+    if (teacherData.google_refresh_token) {
+      syncCalendarBackground(user.id)
+    }
+    
     setLoading(false)
   }
 
@@ -156,10 +161,10 @@ export default function TeacherDashboardPage() {
         if (error) throw error
       }
 
-      alert('✅ Working hours saved!')
+      alert('Working hours saved!')
     } catch (error) {
       console.error('Error saving working hours:', error)
-      alert('❌ Failed to save: ' + error.message)
+      alert('Failed to save: ' + error.message)
     } finally {
       setSavingHours(false)
     }
@@ -182,13 +187,26 @@ export default function TeacherDashboardPage() {
   }
 
   const connectGoogleCalendar = () => {
-    window.location.href = '/api/calendar/auth'
+    window.location.href = `/api/calendar/auth?teacher_id=${user.id}`
+  }
+
+  const syncCalendarBackground = async (userId) => {
+    try {
+      await fetch('/api/calendar/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacherId: userId })
+      })
+      console.log('Background calendar sync completed')
+    } catch (error) {
+      console.error('Background sync error:', error)
+    }
   }
 
   const syncCalendar = async () => {
     const hasWorkingHours = workingHours.some(day => day.enabled)
     if (!hasWorkingHours) {
-      alert('⚠️ Please set your working hours first!')
+      alert('Please set your working hours first!')
       return
     }
 
@@ -203,9 +221,13 @@ export default function TeacherDashboardPage() {
       const data = await response.json()
 
       if (data.success) {
-        alert(`✅ Calendar synced! ${data.slotsCreated} availability slots created.`)
+        alert('Calendar synced! ' + data.slotsCreated + ' availability slots created.')
+      } else if (data.error === 'reconnect_required') {
+        alert('Google Calendar connection expired. Please click Reconnect.')
+        // Update local state to show disconnected
+        setTeacher(prev => ({ ...prev, google_refresh_token: null }))
       } else {
-        alert('❌ Failed to sync: ' + data.error)
+        alert('Failed to sync: ' + (data.message || data.error))
       }
     } catch (error) {
       console.error('Error syncing calendar:', error)
@@ -309,7 +331,7 @@ export default function TeacherDashboardPage() {
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
         <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px', color: '#1e293b' }}>
-          👨‍🏫 Teacher Dashboard
+          Teacher Dashboard
         </h2>
 
         {/* Upcoming Lessons */}
@@ -321,7 +343,7 @@ export default function TeacherDashboardPage() {
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
-            📚 Upcoming Lessons ({upcomingLessons.length})
+            Upcoming Lessons ({upcomingLessons.length})
           </h3>
           
           {upcomingLessons.length === 0 ? (
@@ -399,7 +421,7 @@ export default function TeacherDashboardPage() {
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
-            🔗 Your Zoom Link
+            Your Zoom Link
           </h3>
           {teacher?.zoom_link ? (
             <div>
@@ -427,7 +449,7 @@ export default function TeacherDashboardPage() {
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
-            🕒 Working Hours
+            Working Hours
           </h3>
           <p style={{ color: '#64748b', marginBottom: '20px' }}>
             Set your availability for each day of the week.
@@ -504,7 +526,7 @@ export default function TeacherDashboardPage() {
               cursor: savingHours ? 'not-allowed' : 'pointer'
             }}
           >
-            {savingHours ? 'Saving...' : '💾 Save Working Hours'}
+            {savingHours ? 'Saving...' : 'Save Working Hours'}
           </button>
         </div>
 
@@ -516,13 +538,13 @@ export default function TeacherDashboardPage() {
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
           <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#1e293b' }}>
-            📅 Google Calendar
+            Google Calendar
           </h3>
 
           {isCalendarConnected ? (
             <div>
               <p style={{ color: '#10b981', marginBottom: '16px' }}>
-                ✅ Connected to Google Calendar
+                Connected to Google Calendar
               </p>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <button
@@ -538,7 +560,7 @@ export default function TeacherDashboardPage() {
                     cursor: syncing ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  {syncing ? 'Syncing...' : '🔄 Sync Now'}
+                  {syncing ? 'Syncing...' : 'Sync Now'}
                 </button>
                 <button
                   onClick={connectGoogleCalendar}
@@ -552,11 +574,11 @@ export default function TeacherDashboardPage() {
                     cursor: 'pointer'
                   }}
                 >
-                  🔗 Reconnect
+                  Reconnect
                 </button>
               </div>
               <p style={{ marginTop: '12px', color: '#64748b', fontSize: '14px' }}>
-                Sync your calendar to update your availability for the next 2 weeks.
+                Calendar syncs automatically when you log in. Click 'Sync Now' to update immediately.
               </p>
             </div>
           ) : (
@@ -576,7 +598,7 @@ export default function TeacherDashboardPage() {
                   cursor: 'pointer'
                 }}
               >
-                🔗 Connect Google Calendar
+                Connect Google Calendar
               </button>
             </div>
           )}
