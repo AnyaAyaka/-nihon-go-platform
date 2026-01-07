@@ -1,10 +1,56 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { google } from 'googleapis'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+async function addToGoogleCalendar(teacher, booking, studentName) {
+  if (!teacher.google_refresh_token) {
+    console.log('Teacher has no Google Calendar connected')
+    return null
+  }
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    )
+
+    oauth2Client.setCredentials({
+      refresh_token: teacher.google_refresh_token
+    })
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    const event = {
+      summary: `Nihon GO! Lesson - ${studentName}`,
+      description: `Japanese lesson with ${studentName}\n\nZoom: ${booking.zoom_link || 'TBD'}`,
+      start: {
+        dateTime: booking.start_time,
+        timeZone: 'Europe/London',
+      },
+      end: {
+        dateTime: booking.end_time,
+        timeZone: 'Europe/London',
+      },
+    }
+
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      requestBody: event,
+    })
+
+    console.log('Google Calendar event created:', response.data.id)
+    return response.data.id
+  } catch (error) {
+    console.error('Failed to add to Google Calendar:', error)
+    return null
+  }
+}
 
 export async function POST(request) {
   try {
@@ -38,8 +84,14 @@ export async function POST(request) {
 
     const { data: teacherData } = await supabase
       .from('teachers')
-      .select('zoom_link')
+      .select('*, zoom_link, google_refresh_token')
       .eq('id', slotData.teacher_id)
+      .single()
+
+    const { data: studentProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', studentUserId)
       .single()
 
     const { data: booking, error: bookingError } = await supabase
@@ -66,6 +118,20 @@ export async function POST(request) {
       .update({ remaining_tickets: ticket.remaining_tickets - 1 })
       .eq('id', ticket.id)
 
+    // Googleカレンダーに追加
+    const calendarEventId = await addToGoogleCalendar(
+      teacherData, 
+      booking, 
+      studentProfile?.full_name || 'Student'
+    )
+
+    if (calendarEventId) {
+      await supabase
+        .from('bookings')
+        .update({ google_event_id: calendarEventId })
+        .eq('id', booking.id)
+    }
+
     // メール送信
     try {
       const emailResponse = await fetch('https://app.nihongo-world.com/api/send-booking-confirmation', {
@@ -84,6 +150,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       booking,
+      calendarAdded: !!calendarEventId,
       message: 'Booking confirmed successfully!'
     })
 
