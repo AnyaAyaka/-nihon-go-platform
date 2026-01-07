@@ -8,9 +8,9 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
-    const { slotId, teacherUserId, studentUserId, ticketType } = await request.json()
+    const { slotId, teacherUserId, studentUserId, ticketType, startTime, endTime } = await request.json()
 
-    if (!slotId || !teacherUserId || !studentUserId || !ticketType) {
+    if (!slotId || !teacherUserId || !studentUserId || !ticketType || !startTime || !endTime) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -26,21 +26,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No valid tickets available' }, { status: 400 })
     }
 
-    const { error: slotError } = await supabase
-      .from('teacher_availability')
-      .update({ is_available: false })
-      .eq('id', slotId)
-      .eq('is_available', true)
-
-    if (slotError) {
-      return NextResponse.json({ error: 'Failed to book slot' }, { status: 500 })
-    }
-
     const { data: slotData } = await supabase
       .from('teacher_availability')
-      .select('start_time_utc, end_time_utc, teacher_id')
+      .select('teacher_id')
       .eq('id', slotId)
       .single()
+
+    if (!slotData) {
+      return NextResponse.json({ error: 'Slot not found' }, { status: 404 })
+    }
 
     const { data: teacherData } = await supabase
       .from('teachers')
@@ -55,8 +49,8 @@ export async function POST(request) {
         teacher_id: slotData.teacher_id,
         slot_id: slotId,
         lesson_type: ticketType,
-        start_time: slotData.start_time_utc,
-        end_time: slotData.end_time_utc,
+        start_time: startTime,
+        end_time: endTime,
         status: 'confirmed',
         zoom_link: teacherData?.zoom_link || null
       })
@@ -64,11 +58,6 @@ export async function POST(request) {
       .single()
 
     if (bookingError) {
-      await supabase
-        .from('teacher_availability')
-        .update({ is_available: true })
-        .eq('id', slotId)
-      
       return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
     }
 
@@ -78,30 +67,18 @@ export async function POST(request) {
       .eq('id', ticket.id)
 
     // メール送信
-    console.log('📧 Attempting to send confirmation emails...')
-    console.log('Booking ID:', booking.id)
-    
     try {
-      const emailUrl = 'https://nihon-go-platform.vercel.app/api/send-booking-confirmation'
-      console.log('Email API URL:', emailUrl)
-      
-      const emailResponse = await fetch(emailUrl, {
+      const emailResponse = await fetch('https://app.nihongo-world.com/api/send-booking-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId: booking.id })
       })
       
-      console.log('Email API status:', emailResponse.status)
-      const emailResult = await emailResponse.json()
-      console.log('Email API response:', emailResult)
-      
       if (!emailResponse.ok) {
-        console.error('❌ Email sending failed:', emailResult)
-      } else {
-        console.log('✅ Emails sent successfully')
+        console.error('Email sending failed')
       }
     } catch (emailError) {
-      console.error('❌ Failed to send confirmation emails:', emailError)
+      console.error('Failed to send confirmation emails:', emailError)
     }
 
     return NextResponse.json({
