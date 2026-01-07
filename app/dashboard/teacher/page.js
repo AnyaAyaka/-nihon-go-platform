@@ -113,21 +113,32 @@ export default function TeacherDashboardPage() {
 
   const fetchUpcomingLessons = async (teacherId) => {
     try {
-      const { data, error } = await supabase
+      const { data: bookingsData, error } = await supabase
         .from('bookings')
-        .select(`
-          *,
-          profiles:student_id (full_name, email)
-        `)
+        .select('*')
         .eq('teacher_id', teacherId)
         .eq('status', 'confirmed')
         .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true })
         .limit(10)
 
-      if (!error) {
-        setUpcomingLessons(data || [])
+      if (error) {
+        console.error('Error fetching bookings:', error)
+        return
       }
+
+      const bookingsWithProfiles = await Promise.all(
+        (bookingsData || []).map(async (booking) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('user_id', booking.student_id)
+            .single()
+          return { ...booking, profiles: profileData }
+        })
+      )
+
+      setUpcomingLessons(bookingsWithProfiles)
     } catch (error) {
       console.error('Error fetching lessons:', error)
     }
