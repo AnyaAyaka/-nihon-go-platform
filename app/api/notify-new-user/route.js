@@ -9,7 +9,7 @@ export async function POST(request) {
 
     await resend.emails.send({
       from: 'Nihon GO! World <noreply@nihongo-world.com>',
-      to: 'info@nihongo-world.com',
+      to: 'info@nihongolondon.com',
       subject: 'New User Registration - Nihon GO! World',
       html: '<h2>New User Registered!</h2>' +
         '<p>A new user has signed up on Nihon GO! World.</p>' +

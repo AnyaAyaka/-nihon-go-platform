@@ -91,7 +91,7 @@ export async function POST(request) {
     try {
       await resend.emails.send({
         from: 'Nihon GO! World <noreply@nihongo-world.com>',
-        to: 'info@nihongo-world.com',
+        to: 'info@nihongolondon.com',
         subject: '💰 New Purchase - Nihon GO! World',
         html: `
           <h2>New Ticket Purchase!</h2>
