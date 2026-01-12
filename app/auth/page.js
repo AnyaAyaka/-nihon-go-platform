@@ -13,39 +13,24 @@ export default function AuthPage() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        // 新規登録の場合のみ通知（SIGNED_INイベントで、まだ通知していない場合）
-        if (event === 'SIGNED_IN' && !notifiedRef.current) {
+        // SIGNED_UP は新規登録時のみ発火
+        if (event === 'SIGNED_UP' && !notifiedRef.current) {
           notifiedRef.current = true
           
-          // プロフィールを確認して新規ユーザーかチェック
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('created_at')
-            .eq('user_id', session.user.id)
-            .single()
-
-          // 作成から1分以内なら新規ユーザー
-          if (profile) {
-            const createdAt = new Date(profile.created_at)
-            const now = new Date()
-            const diffMinutes = (now - createdAt) / 1000 / 60
-
-            if (diffMinutes < 1) {
-              // 新規登録通知を送信
-              try {
-                await fetch('/api/notify-new-user', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    email: session.user.email,
-                    full_name: profile.full_name,
-                    role: profile.role
-                  })
-                })
-              } catch (error) {
-                console.error('Failed to notify:', error)
-              }
-            }
+          // 新規登録通知を送信
+          try {
+            await fetch('/api/notify-new-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: session.user.email,
+                full_name: session.user.user_metadata?.full_name || '',
+                role: 'student'
+              })
+            })
+            console.log('New user notification sent')
+          } catch (error) {
+            console.error('Failed to notify:', error)
           }
         }
         router.push('/dashboard')
