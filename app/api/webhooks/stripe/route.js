@@ -1,19 +1,20 @@
 import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+const resend = new Resend(process.env.RESEND_API_KEY)
 
-// Price ID → Ticket Type マッピング
 const PRICE_TO_TICKET_TYPE = {
-  'price_1SKoIUD1Jzw9CFosLC6YJDbE': { type: 'online_trial', tickets: 1 },  // Online Trial £23
-  'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4 },         // Online 4 £120
-  'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4 },      // In-person 4 £180
-  'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4 }         // Premium 4 £140
+  'price_1SKoIUD1Jzw9CFosLC6YJDbE': { type: 'online_trial', tickets: 1, name: 'Online Trial', price: '£23' },
+  'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4, name: 'Online 4 Tickets', price: '£120' },
+  'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4 Tickets', price: '£180' },
+  'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets', price: '£140' }
 }
 
 export async function POST(request) {
@@ -51,19 +52,23 @@ export async function POST(request) {
 
     console.log('Ticket info:', ticketInfo)
 
-    // この ticket_type の既存チケットをチェック
-    const { data: currentTickets, error: fetchError } = await supabase
+    // ユーザー情報取得
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('user_id', userId)
+      .single()
+
+    // チケット処理
+    const { data: currentTickets } = await supabase
       .from('user_current_tickets')
       .select('remaining_tickets')
       .eq('user_id', userId)
       .eq('ticket_type', ticketInfo.type)
       .single()
 
-    console.log('Current tickets for type:', currentTickets)
-
     if (currentTickets) {
-      // 既存のチケットに追加
-      const { error: updateError } = await supabase
+      await supabase
         .from('user_current_tickets')
         .update({
           remaining_tickets: currentTickets.remaining_tickets + ticketInfo.tickets,
@@ -71,15 +76,8 @@ export async function POST(request) {
         })
         .eq('user_id', userId)
         .eq('ticket_type', ticketInfo.type)
-      
-      if (updateError) {
-        console.error('Update error:', updateError)
-      } else {
-        console.log(`Added ${ticketInfo.tickets} ${ticketInfo.type} tickets to user ${userId}`)
-      }
     } else {
-      // 新規チケット作成
-      const { error: insertError } = await supabase
+      await supabase
         .from('user_current_tickets')
         .insert({
           user_id: userId,
@@ -87,12 +85,33 @@ export async function POST(request) {
           remaining_tickets: ticketInfo.tickets,
           updated_at: new Date().toISOString()
         })
-      
-      if (insertError) {
-        console.error('Insert error:', insertError)
-      } else {
-        console.log(`Created ${ticketInfo.tickets} ${ticketInfo.type} tickets for user ${userId}`)
-      }
+    }
+
+    // 管理者に通知メール送信
+    try {
+      await resend.emails.send({
+        from: 'Nihon GO! World <noreply@nihongo-world.com>',
+        to: 'info@nihongo-world.com',
+        subject: '💰 New Purchase - Nihon GO! World',
+        html: `
+          <h2>New Ticket Purchase!</h2>
+          <h3>Customer Details:</h3>
+          <ul>
+            <li><strong>Name:</strong> ${userProfile?.full_name || 'Unknown'}</li>
+            <li><strong>Email:</strong> ${userProfile?.email || session.customer_email || 'Unknown'}</li>
+          </ul>
+          <h3>Purchase Details:</h3>
+          <ul>
+            <li><strong>Product:</strong> ${ticketInfo.name}</li>
+            <li><strong>Price:</strong> ${ticketInfo.price}</li>
+            <li><strong>Tickets:</strong> ${ticketInfo.tickets}</li>
+          </ul>
+          <p><strong>Time:</strong> ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}</p>
+        `
+      })
+      console.log('Admin notification sent')
+    } catch (emailError) {
+      console.error('Failed to send admin notification:', emailError)
     }
   }
 
