@@ -134,35 +134,7 @@ async function sendBookingEmails(booking, teacherData, studentProfile) {
 
     console.log('✅ Teacher email sent:', teacherEmail.data?.id)
 
-    // 管理者に通知メール送信
-    const adminEmail = await resend.emails.send({
-      from: 'Nihon GO! World <noreply@nihongo-world.com>',
-      to: 'info@nihongolondon.com',
-      subject: '📚 New Booking - Nihon GO! World',
-      html: `
-        <h2>New Lesson Booking</h2>
-        
-        <h3>Booking Details:</h3>
-        <ul>
-          <li><strong>Student:</strong> ${studentProfile.full_name || 'Unknown'} (${studentProfile.email})</li>
-          <li><strong>Teacher:</strong> ${teacherData.display_name}</li>
-          <li><strong>Date & Time:</strong> ${lessonDate} (London time)</li>
-          <li><strong>Lesson Type:</strong> ${booking.lesson_type.replace('_', ' ')}</li>
-          ${booking.zoom_link ? `<li><strong>Zoom Link:</strong> <a href="${booking.zoom_link}">${booking.zoom_link}</a></li>` : ''}
-        </ul>
-        
-        <p><strong>Time:</strong> ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}</p>
-      `
-    })
-
-    console.log('✅ Admin email sent:', adminEmail.data?.id)
-
-    return { 
-      success: true, 
-      studentEmailId: studentEmail.data?.id, 
-      teacherEmailId: teacherEmail.data?.id,
-      adminEmailId: adminEmail.data?.id
-    }
+    return { success: true, studentEmailId: studentEmail.data?.id, teacherEmailId: teacherEmail.data?.id }
   } catch (error) {
     console.error('❌ Failed to send booking emails:', error)
     // エラーでも予約は成功させる
