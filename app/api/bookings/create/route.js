@@ -242,13 +242,19 @@ export async function POST(request) {
       .update({ remaining_tickets: ticket.remaining_tickets - 1 })
       .eq('id', ticket.id)
 
-    // 同じ時間帯の他講師の空き枠を削除（共有Zoomのため）
-    await supabase
-      .from('teacher_availability')
-      .delete()
-      .neq('teacher_id', slotData.teacher_id)
-      .lte('start_time_utc', startTime)
-      .gte('end_time_utc', endTime)
+    // 同じ時間帯に他の予約がないかチェック（共有Zoomのため）
+    const { data: conflictingBooking } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('status', 'confirmed')
+      .lt('start_time', endTime)
+      .gt('end_time', startTime)
+      .single()
+
+    if (conflictingBooking) {
+      return NextResponse.json({ error: 'This time slot is no longer available' }, { status: 400 })
+    }
+
 
     // Googleカレンダーに追加
     const calendarEventId = await addToGoogleCalendar(
