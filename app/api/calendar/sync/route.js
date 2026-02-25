@@ -14,6 +14,16 @@ function formatTimeOnly(date) {
   return `${hours}:${minutes}:${seconds}`
 }
 
+// 次の正時に丸める（15:20 → 16:00）
+function roundUpToHour(date) {
+  const rounded = new Date(date)
+  if (rounded.getMinutes() > 0 || rounded.getSeconds() > 0) {
+    rounded.setHours(rounded.getHours() + 1)
+  }
+  rounded.setMinutes(0, 0, 0)
+  return rounded
+}
+
 export async function POST(request) {
   try {
     const { teacherId } = await request.json()
@@ -60,7 +70,6 @@ export async function POST(request) {
       )
     } catch (error) {
       if (error.message?.includes('invalid_grant') || error.code === 401) {
-        // トークンが無効 - 再認証が必要
         await supabase
           .from('teachers')
           .update({
@@ -132,7 +141,9 @@ export async function POST(request) {
             availabilitySlots.push(slot)
           }
           
-          currentSlotStart = busyEnd > currentSlotStart ? busyEnd : currentSlotStart
+          // busyEnd を次の正時に丸める
+          const nextSlotStart = roundUpToHour(busyEnd)
+          currentSlotStart = nextSlotStart > currentSlotStart ? nextSlotStart : currentSlotStart
         }
 
         if (currentSlotStart < dayEnd) {
