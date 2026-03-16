@@ -11,13 +11,30 @@ export default function StudentDashboard({ user, profile }) {
   const [showLessonDialog, setShowLessonDialog] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [tierInfo, setTierInfo] = useState({ tier: 'none', lessonsCompleted: 0 })
 
   useEffect(() => {
     if (user) {
       fetchCurrentTickets()
       fetchUpcomingLessons()
+      fetchTierInfo()
     }
   }, [user])
+
+  const fetchTierInfo = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('tier, total_lessons_completed')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!error && data) {
+      setTierInfo({
+        tier: data.tier || 'none',
+        lessonsCompleted: data.total_lessons_completed || 0
+      })
+    }
+  }
 
   const fetchCurrentTickets = async () => {
     const { data, error } = await supabase
@@ -128,6 +145,30 @@ export default function StudentDashboard({ user, profile }) {
     window.location.href = 'mailto:info@nihongolondon.com?subject=Support Request from Nihon GO! Platform'
   }
 
+  // ティア関連のヘルパー関数
+  const getTierConfig = (tier) => {
+    const configs = {
+      none: { name: 'No Tier', icon: '⭐', color: '#94a3b8', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)', discount: '0%', nextTier: 'Bronze', nextAt: 25 },
+      bronze: { name: 'Bronze', icon: '🥉', color: '#CD7F32', gradient: 'linear-gradient(135deg, #CD7F32 0%, #8B4513 100%)', discount: '5%', nextTier: 'Silver', nextAt: 50 },
+      silver: { name: 'Silver', icon: '🥈', color: '#C0C0C0', gradient: 'linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%)', discount: '10%', nextTier: 'Gold', nextAt: 75 },
+      gold: { name: 'Gold', icon: '🥇', color: '#FFD700', gradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', discount: '15%', nextTier: 'Platinum', nextAt: 100 },
+      platinum: { name: 'Platinum', icon: '💎', color: '#E5E4E2', gradient: 'linear-gradient(135deg, #E5E4E2 0%, #B8B8B8 100%)', discount: '20%', nextTier: null, nextAt: null }
+    }
+    return configs[tier] || configs.none
+  }
+
+  const getProgressToNextTier = () => {
+    const lessons = tierInfo.lessonsCompleted
+    if (lessons >= 100) return { progress: 100, remaining: 0, nextTier: null }
+    if (lessons >= 75) return { progress: ((lessons - 75) / 25) * 100, remaining: 100 - lessons, nextTier: 'Platinum' }
+    if (lessons >= 50) return { progress: ((lessons - 50) / 25) * 100, remaining: 75 - lessons, nextTier: 'Gold' }
+    if (lessons >= 25) return { progress: ((lessons - 25) / 25) * 100, remaining: 50 - lessons, nextTier: 'Silver' }
+    return { progress: (lessons / 25) * 100, remaining: 25 - lessons, nextTier: 'Bronze' }
+  }
+
+  const tierConfig = getTierConfig(tierInfo.tier)
+  const progressInfo = getProgressToNextTier()
+
   return (
     <div style={{ 
       padding: '40px 24px', 
@@ -209,11 +250,11 @@ export default function StudentDashboard({ user, profile }) {
 
             {canCancelOrReschedule(selectedLesson.start_time) ? (
               <p style={{ color: '#10b981', fontSize: '14px', marginBottom: '20px' }}>
-                ✅ You can reschedule or cancel this lesson for free (24+ hours before start time)
+                You can reschedule or cancel this lesson for free (24+ hours before start time)
               </p>
             ) : (
               <p style={{ color: '#ef4444', fontSize: '14px', marginBottom: '20px' }}>
-                ⚠️ This lesson is within 24 hours. Cancellation will result in 100% charge (no ticket refund).
+                This lesson is within 24 hours. Cancellation will result in 100% charge (no ticket refund).
               </p>
             )}
 
@@ -274,6 +315,66 @@ export default function StudentDashboard({ user, profile }) {
           </div>
         </div>
       )}
+
+      {/* Tier Progress Card */}
+      <div style={{
+        background: tierConfig.gradient,
+        borderRadius: '16px',
+        padding: '24px 30px',
+        marginBottom: '24px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+        color: 'white'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ fontSize: '48px' }}>{tierConfig.icon}</div>
+            <div>
+              <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '4px' }}>Your Tier</div>
+              <div style={{ fontSize: '28px', fontWeight: '700' }}>{tierConfig.name}</div>
+              {tierInfo.tier !== 'none' && (
+                <div style={{ fontSize: '16px', opacity: 0.9, marginTop: '4px' }}>
+                  {tierConfig.discount} OFF all purchases
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '4px' }}>Lessons This Year</div>
+            <div style={{ fontSize: '36px', fontWeight: '700' }}>{tierInfo.lessonsCompleted}</div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        {progressInfo.nextTier && (
+          <div style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
+              <span>{progressInfo.remaining} lessons to {progressInfo.nextTier}</span>
+              <span>{Math.round(progressInfo.progress)}%</span>
+            </div>
+            <div style={{
+              background: 'rgba(255,255,255,0.3)',
+              borderRadius: '10px',
+              height: '12px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                background: 'white',
+                height: '100%',
+                borderRadius: '10px',
+                width: `${progressInfo.progress}%`,
+                transition: 'width 0.5s ease'
+              }} />
+            </div>
+          </div>
+        )}
+
+        {!progressInfo.nextTier && (
+          <div style={{ marginTop: '20px', fontSize: '16px', opacity: 0.9 }}>
+            You've reached the highest tier! Enjoy 20% OFF on all purchases.
+          </div>
+        )}
+      </div>
 
       <div style={{
         background: 'white',
@@ -547,4 +648,3 @@ export default function StudentDashboard({ user, profile }) {
     </div>
   )
 }
-
