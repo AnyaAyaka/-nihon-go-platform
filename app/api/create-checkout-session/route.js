@@ -11,12 +11,14 @@ const supabase = createClient(
 // ティアに応じたクーポンコードを取得
 function getTierCoupon(tier) {
   switch (tier) {
+    case 'platinum':
+      return 'PLATINUM20OFF'
     case 'gold':
-      return 'GOLD10OFF'
+      return 'GOLD15OFF'
     case 'silver':
-      return 'SILVER5OFF'
+      return 'SILVER10OFF'
     case 'bronze':
-      return 'BRONZE10OFF'
+      return 'BRONZE5OFF'
     default:
       return null
   }
@@ -37,7 +39,7 @@ export async function POST(request) {
       
       if (profile?.tier) {
         tierCoupon = getTierCoupon(profile.tier)
-        console.log(`🏆 User tier: ${profile.tier}, applying coupon: ${tierCoupon}`)
+        console.log(`User tier: ${profile.tier}, applying coupon: ${tierCoupon}`)
       }
     }
 
@@ -70,7 +72,7 @@ export async function POST(request) {
         
         if (promotionCodes.data.length > 0) {
           sessionOptions.discounts = [{ promotion_code: promotionCodes.data[0].id }]
-          console.log(`✅ Applied tier discount: ${tierCoupon}`)
+          console.log(`Applied tier discount: ${tierCoupon}`)
         } else {
           // クーポンが見つからない場合はプロモーションコード入力を許可
           sessionOptions.allow_promotion_codes = true

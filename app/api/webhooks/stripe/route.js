@@ -11,10 +11,15 @@ const supabase = createClient(
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const PRICE_TO_TICKET_TYPE = {
+  // Online
   'price_1SKoIUD1Jzw9CFosLC6YJDbE': { type: 'online_trial', tickets: 1, name: 'Online Trial', price: '£23' },
-  'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4, name: 'Online 4 Tickets', price: '£120' },
-  'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4 Tickets', price: '£180' },
-  'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets', price: '£140' }
+  'price_1THK0jD1Jzw9CFosdvfDwLmB': { type: 'online', tickets: 1, name: 'Online Single', price: '£35' },
+  'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4, name: 'Online 4-Pack', price: '£120' },
+  // In-Person
+  'price_1THK10D1Jzw9CFosCXP59bx0': { type: 'in_person', tickets: 1, name: 'In-Person Single', price: '£50' },
+  'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4-Pack', price: '£180' },
+  // Legacy (keep for existing purchases)
+  'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets (Legacy)', price: '£140' }
 }
 
 export async function POST(request) {
@@ -62,27 +67,41 @@ export async function POST(request) {
     // チケット処理
     const { data: currentTickets } = await supabase
       .from('user_current_tickets')
-      .select('remaining_tickets')
+      .select('remaining_tickets, expires_at')
       .eq('user_id', userId)
       .eq('ticket_type', ticketInfo.type)
       .single()
 
+    // 有効期限を計算（4週間後）
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 28)
+
     if (currentTickets) {
+      // 既存チケットがある場合は追加
+      // 有効期限は、現在の期限がまだ有効なら延長、期限切れなら新規設定
+      const currentExpiry = new Date(currentTickets.expires_at)
+      const newExpiry = currentExpiry > new Date() 
+        ? new Date(currentExpiry.setDate(currentExpiry.getDate() + 28))
+        : expiresAt
+
       await supabase
         .from('user_current_tickets')
         .update({
           remaining_tickets: currentTickets.remaining_tickets + ticketInfo.tickets,
+          expires_at: newExpiry.toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('user_id', userId)
         .eq('ticket_type', ticketInfo.type)
     } else {
+      // 新規作成
       await supabase
         .from('user_current_tickets')
         .insert({
           user_id: userId,
           ticket_type: ticketInfo.type,
           remaining_tickets: ticketInfo.tickets,
+          expires_at: expiresAt.toISOString(),
           updated_at: new Date().toISOString()
         })
     }
@@ -92,7 +111,7 @@ export async function POST(request) {
       await resend.emails.send({
         from: 'Nihon GO! World <noreply@nihongo-world.com>',
         to: 'info@nihongolondon.com',
-        subject: '💰 New Purchase - Nihon GO! World',
+        subject: 'New Purchase - Nihon GO! World',
         html: `
           <h2>New Ticket Purchase!</h2>
           <h3>Customer Details:</h3>
