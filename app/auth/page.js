@@ -1,5 +1,4 @@
 'use client'
-
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '../../lib/supabase'
@@ -11,13 +10,13 @@ export default function AuthPage() {
   const notifiedRef = useRef(false)
 
   useEffect(() => {
+    const paymentIntent = new URLSearchParams(window.location.search).get('payment')
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        // SIGNED_UP は新規登録時のみ発火
         if (event === 'SIGNED_UP' && !notifiedRef.current) {
           notifiedRef.current = true
-          
-          // 新規登録通知を送信
+
           try {
             await fetch('/api/notify-new-user', {
               method: 'POST',
@@ -28,11 +27,27 @@ export default function AuthPage() {
                 role: 'student'
               })
             })
-            console.log('New user notification sent')
           } catch (error) {
             console.error('Failed to notify:', error)
           }
+
+          // JLPT購入があればuser_idを紐付け
+          if (paymentIntent) {
+            try {
+              await fetch('/api/jlpt/link-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: session.user.id,
+                  paymentIntent: paymentIntent,
+                })
+              })
+            } catch (error) {
+              console.error('Failed to link JLPT subscription:', error)
+            }
+          }
         }
+
         router.push('/dashboard')
       }
     })
