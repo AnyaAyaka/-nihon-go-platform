@@ -53,28 +53,50 @@ export async function POST(request) {
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
     const priceId = lineItems.data[0].price.id
 
-    // JLPTの購入チェック
     const jlptLevel = JLPT_PRICE_TO_LEVEL[priceId]
 
     if (jlptLevel) {
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + 60)
 
+      const customerEmail = session.customer_details?.email || session.customer_email
+
       await supabase
         .from('jlpt_subscriptions')
         .upsert({
-          user_id: userId,
+          user_id: userId || null,
           level: jlptLevel,
           purchased_at: new Date().toISOString(),
           expires_at: expiresAt.toISOString(),
-          stripe_payment_id: session.payment_intent
-        }, { onConflict: 'user_id,level' })
+          stripe_payment_id: session.payment_intent,
+          customer_email: customerEmail,
+        }, { onConflict: 'stripe_payment_id' })
 
-      console.log(`JLPT ${jlptLevel} subscription created for user ${userId}`)
+      try {
+        await resend.emails.send({
+          from: 'Nihon GO! World <noreply@nihongo-world.com>',
+          to: customerEmail,
+          subject: `Your JLPT ${jlptLevel} Mock Test Pack is ready`,
+          html: `
+            <h2>Thank you for your purchase!</h2>
+            <p>You now have 60-day access to the JLPT ${jlptLevel} Mock Test Pack.</p>
+            <p>To access your tests, please create an account:</p>
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL}/auth?payment=${session.payment_intent}" 
+               style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;text-decoration:none;border-radius:8px;font-weight:600;">
+              Create Account and Start Studying
+            </a>
+            <p style="color:#666;font-size:14px;margin-top:24px;">
+              Your access expires on ${expiresAt.toLocaleDateString('en-GB')}.
+            </p>
+          `
+        })
+      } catch (emailError) {
+        console.error('Failed to send JLPT purchase email:', emailError)
+      }
+
       return NextResponse.json({ received: true })
     }
 
-    // 通常のチケット処理
     const ticketInfo = PRICE_TO_TICKET_TYPE[priceId]
 
     if (!ticketInfo) {
