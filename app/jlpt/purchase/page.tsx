@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1']
+const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
+type JLPTLevel = typeof JLPT_LEVELS[number]
 
-const PRICE_IDS = {
+const PRICE_IDS: Record<JLPTLevel, string> = {
   N5: 'price_1TISm3D1Jzw9CFosuzy82ddE',
   N4: 'price_1TISmwD1Jzw9CFosxN3Xhlzh',
   N3: 'price_1TISoiD1Jzw9CFospZ3u7hsV',
@@ -15,8 +16,8 @@ const PRICE_IDS = {
 
 export default function JLPTPurchasePage() {
   const searchParams = useSearchParams()
-  const defaultLevel = searchParams.get('level') || 'N3'
-  const [selected, setSelected] = useState(defaultLevel)
+  const defaultLevel = (searchParams.get('level') as JLPTLevel) || 'N3'
+  const [selected, setSelected] = useState<JLPTLevel>(defaultLevel)
   const [loading, setLoading] = useState(false)
 
   const handlePurchase = async () => {
@@ -47,7 +48,6 @@ export default function JLPTPurchasePage() {
       <p style={{ color: '#666', marginBottom: '32px' }}>
         60-day unlimited access to all mock tests. Select your level below.
       </p>
-
       <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
         {JLPT_LEVELS.map((level) => (
           <button
@@ -67,13 +67,16 @@ export default function JLPTPurchasePage() {
           </button>
         ))}
       </div>
-
       <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
         <p style={{ margin: '0 0 8px', fontWeight: '600', fontSize: '18px' }}>{selected} Mock Test Pack</p>
         <p style={{ margin: '0 0 16px', color: '#666' }}>60-day access · Unlimited retakes · Full explanations</p>
-        <p style={{ margin: '0', fontSize: '28px', fontWeight: '700' }}>£9.99 <span style={{ fontSize: '14px', color: '#ef4444', fontWeight: '400' }}>Beta price (usually £19.99)</span></p>
+        <p style={{ margin: '0', fontSize: '28px', fontWeight: '700' }}>
+          £9.99{' '}
+          <span style={{ fontSize: '14px', color: '#ef4444', fontWeight: '400' }}>
+            Beta price (usually £19.99)
+          </span>
+        </p>
       </div>
-
       <button
         onClick={handlePurchase}
         disabled={loading}
