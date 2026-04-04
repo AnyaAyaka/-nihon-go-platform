@@ -126,11 +126,11 @@ export default function StudentDashboard({ user, profile }) {
 
   const getTierConfig = (tier) => {
     const configs = {
-      none: { name: 'No Tier', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)', discount: null, nextTier: 'Bronze' },
-      bronze: { name: 'Bronze', gradient: 'linear-gradient(135deg, #CD7F32 0%, #8B4513 100%)', discount: '5%', nextTier: 'Silver' },
-      silver: { name: 'Silver', gradient: 'linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%)', discount: '10%', nextTier: 'Gold' },
-      gold: { name: 'Gold', gradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', discount: '15%', nextTier: 'Platinum' },
-      platinum: { name: 'Platinum', gradient: 'linear-gradient(135deg, #E5E4E2 0%, #B8B8B8 100%)', discount: '20%', nextTier: null }
+      none: { name: 'No Tier', gradient: 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)', discount: null },
+      bronze: { name: 'Bronze', gradient: 'linear-gradient(135deg, #CD7F32 0%, #8B4513 100%)', discount: '5%' },
+      silver: { name: 'Silver', gradient: 'linear-gradient(135deg, #C0C0C0 0%, #A8A8A8 100%)', discount: '10%' },
+      gold: { name: 'Gold', gradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', discount: '15%' },
+      platinum: { name: 'Platinum', gradient: 'linear-gradient(135deg, #E5E4E2 0%, #B8B8B8 100%)', discount: '20%' }
     }
     return configs[tier] || configs.none
   }
@@ -229,7 +229,6 @@ export default function StudentDashboard({ user, profile }) {
       {/* Main Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px', marginBottom: '24px' }}>
 
-        {/* Tickets */}
         <div style={{ background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)', color: 'white', borderRadius: '16px', padding: '40px', boxShadow: '0 8px 24px rgba(251,113,133,0.25)', transition: 'all 0.3s ease', cursor: 'pointer' }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(251,113,133,0.35)' }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(251,113,133,0.25)' }}
@@ -253,7 +252,6 @@ export default function StudentDashboard({ user, profile }) {
           >Get Tickets</button>
         </div>
 
-        {/* Book Lesson */}
         <div style={{ background: 'white', borderRadius: '16px', padding: '40px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', border: '2px solid #e2e8f0', transition: 'all 0.3s ease', cursor: 'pointer' }}
           onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#fb7185'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(251,113,133,0.15)' }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)' }}
@@ -293,16 +291,21 @@ export default function StudentDashboard({ user, profile }) {
             </div>
           </div>
         )}
-        {!progressInfo.nextTier && <div style={{ marginTop: '20px', fontSize: '16px', opacity: 0.9 }}>You've reached the highest tier! Enjoy 20% OFF on all purchases.</div>}
+        {!progressInfo.nextTier && (
+          <div style={{ marginTop: '20px', fontSize: '16px', opacity: 0.9 }}>You've reached the highest tier! Enjoy 20% OFF on all purchases.</div>
+        )}
       </div>
 
       {/* Contact */}
-<div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-  <button onClick={() => window.location.href = 'mailto:info@nihongolondon.com?subject=Support Request from Nihon GO! Platform'}
-    style={{ background: 'white', color: '#64748b', border: '2px solid #e2e8f0', borderRadius: '12px', padding: '12px 28px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
-    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fb7185'; e.currentTarget.style.color = '#fb7185' }}
-    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b' }}
-  >Contact Support</button>
-</div>
+      <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+        <button
+          onClick={() => window.location.href = 'mailto:info@nihongolondon.com?subject=Support Request from Nihon GO! Platform'}
+          style={{ background: 'white', color: '#64748b', border: '2px solid #e2e8f0', borderRadius: '12px', padding: '12px 28px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fb7185'; e.currentTarget.style.color = '#fb7185' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b' }}
+        >Contact Support</button>
+      </div>
+
+    </div>
   )
 }
