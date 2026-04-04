@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
@@ -14,7 +14,7 @@ const PRICE_IDS: Record<JLPTLevel, string> = {
   N1: 'price_1TISqED1Jzw9CFosRqCK28J9',
 }
 
-export default function JLPTPurchasePage() {
+function PurchaseContent() {
   const searchParams = useSearchParams()
   const defaultLevel = (searchParams.get('level') as JLPTLevel) || 'N3'
   const [selected, setSelected] = useState<JLPTLevel>(defaultLevel)
@@ -96,5 +96,13 @@ export default function JLPTPurchasePage() {
         {loading ? 'Processing...' : `Buy ${selected} Pack`}
       </button>
     </div>
+  )
+}
+
+export default function JLPTPurchasePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PurchaseContent />
+    </Suspense>
   )
 }
