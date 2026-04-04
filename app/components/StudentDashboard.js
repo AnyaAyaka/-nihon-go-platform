@@ -148,7 +148,7 @@ export default function StudentDashboard({ user, profile }) {
   const progressInfo = getProgressToNextTier()
 
   return (
-    <div style={{ padding: '40px 24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '40px 24px', maxWidth: '1200px', margin: '0 auto' }}>
       <h2 style={{ marginBottom: '30px', fontSize: '32px', fontWeight: '700', color: '#1e293b' }}>Student Dashboard</h2>
 
       {showLessonDialog && selectedLesson && (
@@ -297,10 +297,12 @@ export default function StudentDashboard({ user, profile }) {
       </div>
 
       {/* Contact */}
-      <div style={{ textAlign: 'center', padding: '8px 0' }}>
-        <a href="mailto:info@nihongolondon.com" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>Contact support</a>
-      </div>
-
-    </div>
-  )
+<div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+  <button onClick={() => window.location.href = 'mailto:info@nihongolondon.com?subject=Support Request from Nihon GO! Platform'}
+    style={{ background: 'white', color: '#64748b', border: '2px solid #e2e8f0', borderRadius: '12px', padding: '12px 28px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
+    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fb7185'; e.currentTarget.style.color = '#fb7185' }}
+    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b' }}
+  >Contact Support</button>
+</div> 
+    )
 }
