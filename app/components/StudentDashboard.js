@@ -303,6 +303,6 @@ export default function StudentDashboard({ user, profile }) {
     onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fb7185'; e.currentTarget.style.color = '#fb7185' }}
     onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b' }}
   >Contact Support</button>
-</div> 
-    )
+</div>
+  )
 }
