@@ -10,15 +10,20 @@ const supabase = createClient(
 )
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+const JLPT_PRICE_TO_LEVEL = {
+  'price_1TISm3D1Jzw9CFosuzy82ddE': 'N5',
+  'price_1TISmwD1Jzw9CFosxN3Xhlzh': 'N4',
+  'price_1TISoiD1Jzw9CFospZ3u7hsV': 'N3',
+  'price_1TISpPD1Jzw9CFosDTU3hv7e': 'N2',
+  'price_1TISqED1Jzw9CFosRqCK28J9': 'N1',
+}
+
 const PRICE_TO_TICKET_TYPE = {
-  // Online
   'price_1SKoIUD1Jzw9CFosLC6YJDbE': { type: 'online_trial', tickets: 1, name: 'Online Trial', price: '£23' },
   'price_1THK0jD1Jzw9CFosdvfDwLmB': { type: 'online', tickets: 1, name: 'Online Single', price: '£35' },
   'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4, name: 'Online 4-Pack', price: '£120' },
-  // In-Person
   'price_1THK10D1Jzw9CFosCXP59bx0': { type: 'in_person', tickets: 1, name: 'In-Person Single', price: '£50' },
   'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4-Pack', price: '£180' },
-  // Legacy (keep for existing purchases)
   'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets (Legacy)', price: '£140' }
 }
 
@@ -42,14 +47,36 @@ export async function POST(request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const userId = session.metadata.userId
-    
+
     console.log('Processing checkout for user:', userId)
-    
+
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
     const priceId = lineItems.data[0].price.id
-    
+
+    // JLPTの購入チェック
+    const jlptLevel = JLPT_PRICE_TO_LEVEL[priceId]
+
+    if (jlptLevel) {
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + 60)
+
+      await supabase
+        .from('jlpt_subscriptions')
+        .upsert({
+          user_id: userId,
+          level: jlptLevel,
+          purchased_at: new Date().toISOString(),
+          expires_at: expiresAt.toISOString(),
+          stripe_payment_id: session.payment_intent
+        }, { onConflict: 'user_id,level' })
+
+      console.log(`JLPT ${jlptLevel} subscription created for user ${userId}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // 通常のチケット処理
     const ticketInfo = PRICE_TO_TICKET_TYPE[priceId]
-    
+
     if (!ticketInfo) {
       console.error('Unknown price ID:', priceId)
       return NextResponse.json({ error: 'Unknown price' }, { status: 400 })
@@ -57,14 +84,12 @@ export async function POST(request) {
 
     console.log('Ticket info:', ticketInfo)
 
-    // ユーザー情報取得
     const { data: userProfile } = await supabase
       .from('profiles')
       .select('full_name, email')
       .eq('user_id', userId)
       .single()
 
-    // チケット処理
     const { data: currentTickets } = await supabase
       .from('user_current_tickets')
       .select('remaining_tickets, expires_at')
@@ -72,15 +97,12 @@ export async function POST(request) {
       .eq('ticket_type', ticketInfo.type)
       .single()
 
-    // 有効期限を計算（4週間後）
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 28)
 
     if (currentTickets) {
-      // 既存チケットがある場合は追加
-      // 有効期限は、現在の期限がまだ有効なら延長、期限切れなら新規設定
       const currentExpiry = new Date(currentTickets.expires_at)
-      const newExpiry = currentExpiry > new Date() 
+      const newExpiry = currentExpiry > new Date()
         ? new Date(currentExpiry.setDate(currentExpiry.getDate() + 28))
         : expiresAt
 
@@ -94,7 +116,6 @@ export async function POST(request) {
         .eq('user_id', userId)
         .eq('ticket_type', ticketInfo.type)
     } else {
-      // 新規作成
       await supabase
         .from('user_current_tickets')
         .insert({
@@ -106,7 +127,6 @@ export async function POST(request) {
         })
     }
 
-    // 管理者に通知メール送信
     try {
       await resend.emails.send({
         from: 'Nihon GO! World <noreply@nihongo-world.com>',
