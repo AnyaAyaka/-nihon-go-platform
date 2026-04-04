@@ -12,31 +12,28 @@ export default async function JLPTLayout({
   params,
 }: {
   children: React.ReactNode
-  params: { level: string; mock: string }
+  params: Promise<{ level: string; mock: string }>
 }) {
-  const { level, mock } = params
+  const { level, mock } = await params
   const mockNumber = parseInt(mock.replace('mock-', ''))
 
-  // Mock-01は無料なのでチェックしない
   if (mockNumber <= 1) {
     return <>{children}</>
   }
 
-  // Mock-02以降は認証チェック
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const token = cookieStore.get('sb-access-token')?.value
 
   if (!token) {
     redirect('/login?reason=jlpt')
   }
 
-  const { data: { user } } = await supabase.auth.getUser(token)
+  const { data: { user } } = await supabase.auth.getUser(token!)
 
   if (!user) {
     redirect('/login?reason=jlpt')
   }
 
-  // サブスクチェック
   const { data: subscription } = await supabase
     .from('jlpt_subscriptions')
     .select('expires_at')
