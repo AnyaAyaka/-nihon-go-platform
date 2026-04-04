@@ -1,215 +1,113 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
-import { useRouter } from 'next/navigation'
-import StudentDashboard from '../components/StudentDashboard'
+import { supabase } from '../../../lib/supabase'
 
-export default function Dashboard() {
-  const [user, setUser] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const router = useRouter()
+const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1']
+
+const PRICE_IDS: Record<string, string> = {
+  N5: 'price_1TISm3D1Jzw9CFosuzy82ddE',
+  N4: 'price_1TISmwD1Jzw9CFosxN3Xhlzh',
+  N3: 'price_1TISoiD1Jzw9CFospZ3u7hsV',
+  N2: 'price_1TISpPD1Jzw9CFosDTU3hv7e',
+  N1: 'price_1TISqED1Jzw9CFosRqCK28J9',
+}
+
+export default function JLPTPurchasePage() {
+  const [selected, setSelected] = useState('N3')
+  const [loading, setLoading] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    checkUser()
+    const params = new URLSearchParams(window.location.search)
+    const level = params.get('level')
+    if (level && JLPT_LEVELS.includes(level)) {
+      setSelected(level)
+    }
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id)
+    })
   }, [])
 
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      router.push('/auth')
-      return
+  const handlePurchase = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priceId: PRICE_IDS[selected],
+          userId: userId,
+        }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
     }
-
-    setUser(user)
-
-    const { data: profileData, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    // 講師の場合は /dashboard/teacher にリダイレクト
-    if (profileData?.role === 'teacher') {
-      router.push('/dashboard/teacher')
-      return
-    }
-
-    setProfile(profileData)
-    setLoading(false)
-  }
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
-
-  if (loading) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
-      }}>
-        <div style={{ fontSize: '18px', color: '#1e293b', fontWeight: '600' }}>Loading...</div>
-      </div>
-    )
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)' }}>
-      {/* Header */}
-      <div style={{ 
-        background: 'white', 
-        padding: '24px 40px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '32px', 
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>
-            Welcome to Nihon GO! World
-          </h1>
-          <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '15px' }}>
-            Hello, {profile?.full_name || user?.email} • {profile?.role || 'User'}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+    <div style={{ maxWidth: '480px', margin: '60px auto', padding: '0 20px', fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>JLPT Mock Test Pack</h1>
+      <p style={{ color: '#666', marginBottom: '32px' }}>
+        60-day unlimited access to all mock tests. Select your level below.
+      </p>
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '32px' }}>
+        {JLPT_LEVELS.map((level) => (
           <button
-            onClick={() => router.push('/profile')}
+            key={level}
+            onClick={() => setSelected(level)}
             style={{
-              padding: '12px 24px',
-              background: '#1e293b',
-              color: 'white',
-              border: 'none',
+              padding: '10px 16px',
+              border: selected === level ? '2px solid #2563eb' : '2px solid #e5e7eb',
               borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer'
+              background: selected === level ? '#eff6ff' : '#fff',
+              color: selected === level ? '#2563eb' : '#374151',
+              fontWeight: selected === level ? '700' : '400',
+              cursor: 'pointer',
             }}
           >
-            Edit Profile
+            {level}
           </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '12px 24px',
-              background: '#fb7185',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Logout
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Dashboard Content */}
-      {!profile || !profile.role ? (
-        <div style={{
-          maxWidth: '600px',
-          margin: '80px auto',
-          padding: '60px',
-          background: 'white',
-          borderRadius: '20px',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '24px' }}>👋</div>
-          <h2 style={{ 
-            margin: '0 0 16px 0', 
-            fontSize: '28px', 
-            fontWeight: '700',
-            color: '#1e293b'
-          }}>
-            Complete Your Profile
-          </h2>
-          <p style={{ 
-            margin: '0 0 32px 0', 
-            color: '#64748b', 
-            fontSize: '16px',
-            lineHeight: '1.6'
-          }}>
-            Please set your role in your profile to access the dashboard features.
-          </p>
-          <button
-            onClick={() => router.push('/profile')}
-            style={{
-              padding: '16px 40px',
-              background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '16px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(251, 113, 133, 0.3)'
-            }}
-          >
-            Set Up Profile
-          </button>
-        </div>
-      ) : profile.role === 'student' ? (
-        <StudentDashboard user={user} profile={profile} />
-      ) : (
-        <div style={{
-          maxWidth: '600px',
-          margin: '80px auto',
-          padding: '60px',
-          background: 'white',
-          borderRadius: '20px',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '24px' }}>❓</div>
-          <h2 style={{ 
-            margin: '0 0 16px 0', 
-            fontSize: '28px', 
-            fontWeight: '700',
-            color: '#1e293b'
-          }}>
-            Unknown Role
-          </h2>
-          <p style={{ 
-            margin: '0 0 32px 0', 
-            color: '#64748b', 
-            fontSize: '16px'
-          }}>
-            Your profile role is not recognized. Role: "{profile?.role}"
-          </p>
-          <button
-            onClick={() => router.push('/profile')}
-            style={{
-              padding: '16px 40px',
-              background: 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '16px',
-              fontWeight: '700',
-              cursor: 'pointer'
-            }}
-          >
-            Update Profile
-          </button>
-        </div>
-      )}
+      <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
+        <p style={{ margin: '0 0 8px', fontWeight: '600', fontSize: '18px' }}>{selected} Mock Test Pack</p>
+        <p style={{ margin: '0 0 16px', color: '#666' }}>60-day access · Unlimited retakes · Full explanations</p>
+        <p style={{ margin: '0', fontSize: '28px', fontWeight: '700' }}>
+          £9.99{' '}
+          <span style={{ fontSize: '14px', color: '#ef4444', fontWeight: '400' }}>
+            Beta price (usually £19.99)
+          </span>
+        </p>
+      </div>
+
+      <button
+        onClick={handlePurchase}
+        disabled={loading}
+        style={{
+          width: '100%',
+          padding: '14px',
+          background: '#2563eb',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: '600',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          opacity: loading ? 0.7 : 1,
+        }}
+      >
+        {loading ? 'Processing...' : `Buy ${selected} Pack`}
+      </button>
     </div>
   )
 }
