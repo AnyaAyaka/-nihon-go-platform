@@ -1,5 +1,5 @@
 'use client'
-import AccessCheck from '../../../../AccessCheck'
+import AccessCheck from '../../../AccessCheck'
 
 export default function Page() {
   return (
