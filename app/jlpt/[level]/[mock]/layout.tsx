@@ -31,7 +31,7 @@ export default function JLPTLayout({
         .from('jlpt_subscriptions')
         .select('id')
         .eq('user_id', user.id)
-        .eq('level', level)
+.eq('level', level.toUpperCase())
         .gt('expires_at', new Date().toISOString())
         .limit(1)
 
