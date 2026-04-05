@@ -1,7 +1,6 @@
 'use client'
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { supabase } from '../../../../lib/supabase'
 
 export default function JLPTLayout({
   children,
@@ -11,39 +10,13 @@ export default function JLPTLayout({
   const pathname = usePathname()
 
   useEffect(() => {
+    console.log('LAYOUT LOADED:', pathname)
+    // テスト：強制的に購入ページ以外には飛ばない
     const match = pathname.match(/\/jlpt\/([^/]+)\/(mock-(\d+))/)
-    if (!match) return
-
-    const level = match[1].toUpperCase()
-    const mockNum = parseInt(match[3])
-
-    if (mockNum <= 1) return
-
-    const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      console.log('JLPT check - user:', user?.id, 'level:', level)
-
-      if (!user) {
-        window.location.href = `https://app.nihongo-world.com/auth?reason=jlpt`
-        return
-      }
-
-      const { data: subs, error } = await supabase
-        .from('jlpt_subscriptions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('level', level)
-        .gt('expires_at', new Date().toISOString())
-        .limit(1)
-
-      console.log('JLPT check - subs:', subs, 'error:', error)
-
-      if (!subs || subs.length === 0) {
-        window.location.href = `https://app.nihongo-world.com/jlpt/purchase?level=${level}`
-      }
+    if (match) {
+      const mockNum = parseInt(match[3])
+      console.log('Mock number:', mockNum)
     }
-
-    check()
   }, [pathname])
 
   return <>{children}</>
