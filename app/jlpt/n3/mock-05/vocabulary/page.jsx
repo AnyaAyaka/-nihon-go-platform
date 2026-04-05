@@ -1,7 +1,11 @@
 'use client'
+import AccessCheck from '../../../../AccessCheck'
+
 export default function Page() {
   return (
-    <div dangerouslySetInnerHTML={{ __html: `<!DOCTYPE html>
+    <>
+      <AccessCheck level="N3" mockNum={5} />
+      <div dangerouslySetInnerHTML={{ __html: `<!DOCTYPE html>
 
 <html lang="ja">
 <head>
@@ -521,5 +525,6 @@ export default function Page() {
 <div style="text-align: center; padding: 30px 20px; background: #f8fafc; border-top: 1px solid #e5e7eb; margin-top: 40px;"><p style="color: #6b7280; font-size: 0.85rem; margin: 0;">Original JLPT practice content created by <a href="https://nihongo-world.com" style="color: #fb7185; text-decoration: none; font-weight: 500;">Nihon GO! World</a></p><p style="color: #9ca3af; font-size: 0.8rem; margin-top: 8px;">Free for personal use • Government-certified teachers</p></div></body>
 </html>
 ` }} />
+    </>
   )
 }
