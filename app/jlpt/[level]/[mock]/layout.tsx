@@ -21,19 +21,22 @@ export default function JLPTLayout({
 
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('JLPT check - user:', user?.id, 'level:', level)
 
       if (!user) {
         window.location.href = `https://app.nihongo-world.com/auth?reason=jlpt`
         return
       }
 
-      const { data: subs } = await supabase
+      const { data: subs, error } = await supabase
         .from('jlpt_subscriptions')
         .select('id')
         .eq('user_id', user.id)
-.eq('level', level.toUpperCase())
+        .eq('level', level)
         .gt('expires_at', new Date().toISOString())
         .limit(1)
+
+      console.log('JLPT check - subs:', subs, 'error:', error)
 
       if (!subs || subs.length === 0) {
         window.location.href = `https://app.nihongo-world.com/jlpt/purchase?level=${level}`
