@@ -116,13 +116,19 @@ export default function StudentDashboard({ user, profile }) {
 
   const totalTickets = allTickets.reduce((sum, t) => sum + t.remaining_tickets, 0)
 
-  const getLevelUrl = (level) => ({
-    N5: 'https://nihongo-world.com/materials/jlpt/n5/',
-    N4: 'https://nihongo-world.com/materials/jlpt/n4/',
-    N3: 'https://nihongo-world.com/materials/jlpt/n3/',
-    N2: 'https://nihongo-world.com/materials/jlpt/n2/',
-    N1: 'https://nihongo-world.com/materials/jlpt/n1/',
-  })[level] || 'https://nihongo-world.com/materials/jlpt/'
+  const handleGoToTests = async (level) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token || ''
+    const urls = {
+      N5: 'https://nihongo-world.com/materials/jlpt/n5/',
+      N4: 'https://nihongo-world.com/materials/jlpt/n4/',
+      N3: 'https://nihongo-world.com/materials/jlpt/n3/',
+      N2: 'https://nihongo-world.com/materials/jlpt/n2/',
+      N1: 'https://nihongo-world.com/materials/jlpt/n1/',
+    }
+    const base = urls[level] || 'https://nihongo-world.com/materials/jlpt/'
+    window.location.href = base + '?token=' + token
+  }
 
   const getTierConfig = (tier) => {
     const configs = {
@@ -212,15 +218,16 @@ export default function StudentDashboard({ user, profile }) {
           <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '700', color: 'white' }}>JLPT Mock Tests</h3>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             {jlptSubscriptions.map((sub) => (
-              <a key={sub.level} href={getLevelUrl(sub.level)}
-                style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '16px 24px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.15)', textDecoration: 'none', transition: 'background 0.2s' }}
+              <div key={sub.level}
+                onClick={() => handleGoToTests(sub.level)}
+                style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '16px 24px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', transition: 'background 0.2s' }}
                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
               >
                 <span style={{ fontSize: '20px', fontWeight: '700', color: 'white' }}>{sub.level}</span>
                 <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>Expires {new Date(sub.expires_at).toLocaleDateString('en-GB')}</span>
                 <span style={{ fontSize: '13px', color: '#06b6d4', fontWeight: '600', marginTop: '4px' }}>Go to tests</span>
-              </a>
+              </div>
             ))}
           </div>
         </div>
