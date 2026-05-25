@@ -30,8 +30,13 @@ function BookingContent() {
 
   useEffect(() => {
     checkUser()
-    fetchTeachers()
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      fetchTeachers()
+    }
+  }, [user])
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -62,6 +67,7 @@ function BookingContent() {
   }
 
   const fetchTeachers = async () => {
+    // まず全講師を取得
     const { data } = await supabase
       .from('profiles')
       .select('user_id, email, full_name, display_name, bio, lesson_types, location')
@@ -69,9 +75,34 @@ function BookingContent() {
       .order('display_name')
 
     let filteredData = data || []
+
+    // ロケーションフィルター
     if (locationFilter) {
       filteredData = filteredData.filter(t => t.location === locationFilter)
     }
+
+    // 制限テーブルをチェック（この生徒に非表示の講師を除外）
+    if (user) {
+      const { data: restrictions } = await supabase
+        .from('teacher_student_restrictions')
+        .select('teacher_id')
+        .eq('student_id', user.id)
+
+      if (restrictions && restrictions.length > 0) {
+        // teachersテーブルからuser_idを取得して照合
+        const { data: teachersData } = await supabase
+          .from('teachers')
+          .select('id, user_id')
+
+        const restrictedTeacherUserIds = restrictions.map(r => {
+          const teacher = teachersData?.find(t => t.id === r.teacher_id)
+          return teacher?.user_id
+        }).filter(Boolean)
+
+        filteredData = filteredData.filter(t => !restrictedTeacherUserIds.includes(t.user_id))
+      }
+    }
+
     setTeachers(filteredData)
   }
 
@@ -152,13 +183,13 @@ function BookingContent() {
       const result = await response.json()
 
       if (response.ok) {
-        alert('✅ Booking confirmed successfully!')
+        alert('Booking confirmed successfully!')
         router.push('/dashboard')
       } else {
-        alert(`❌ Booking failed: ${result.error}`)
+        alert(`Booking failed: ${result.error}`)
       }
     } catch (error) {
-      alert(`❌ Error: ${error.message}`)
+      alert(`Error: ${error.message}`)
     } finally {
       setIsBooking(false)
     }
@@ -350,7 +381,7 @@ function BookingContent() {
           }}>
             <h2>Choose Your Teacher</h2>
             <p style={{ color: '#666', fontSize: '14px', marginTop: '5px' }}>
-              📅 Bookings must be made at least 24 hours in advance
+              Bookings must be made at least 24 hours in advance
             </p>
             
             <div style={{ 
@@ -387,7 +418,7 @@ function BookingContent() {
                       Lesson types: {teacher.lesson_types ? teacher.lesson_types.join(', ') : 'None'}
                     </div>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: canBook ? '#10b981' : '#ef4444' }}>
-                      {canBook ? `✅ Available` : '❌ No compatible tickets'}
+                      {canBook ? 'Available' : 'No compatible tickets'}
                     </div>
                   </div>
                 )
@@ -419,12 +450,12 @@ function BookingContent() {
                 fontWeight: '600'
               }}
             >
-              ← Back to teachers
+              Back to teachers
             </button>
             
             <h2 style={{ marginBottom: '5px' }}>{selectedTeacher.display_name || selectedTeacher.full_name}</h2>
             <p style={{ color: '#888', fontSize: '14px', margin: '0 0 20px 0' }}>
-              📅 Select a date to see available times (London timezone) • Each lesson is {LESSON_DURATION_MINUTES} minutes
+              Select a date to see available times (London timezone)
             </p>
 
             <div style={{
@@ -539,7 +570,7 @@ function BookingContent() {
                 background: '#f8f9fa',
                 borderRadius: '15px'
               }}>
-                👆 Select a date above to see available times
+                Select a date above to see available times
               </div>
             )}
 
@@ -568,7 +599,7 @@ function BookingContent() {
             onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
             onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
           >
-            ← Back to Dashboard
+            Back to Dashboard
           </button>
         </div>
 
