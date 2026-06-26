@@ -22,6 +22,7 @@ const PRICE_TO_TICKET_TYPE = {
   'price_1SKoIUD1Jzw9CFosLC6YJDbE': { type: 'online_trial', tickets: 1, name: 'Online Trial', price: '£23' },
   'price_1THK0jD1Jzw9CFosdvfDwLmB': { type: 'online', tickets: 1, name: 'Online Single', price: '£35' },
   'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4, name: 'Online 4-Pack', price: '£120' },
+  'price_1Tg5GnD1Jzw9CFosPU2Jach9': { type: 'inperson_trial', tickets: 1, name: 'In-Person Trial', price: '£40' },
   'price_1THK10D1Jzw9CFosCXP59bx0': { type: 'in_person', tickets: 1, name: 'In-Person Single', price: '£50' },
   'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4-Pack', price: '£180' },
   'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets (Legacy)', price: '£140' }

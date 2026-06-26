@@ -8,6 +8,8 @@ export default function SubscriptionPage() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [subscribing, setSubscribing] = useState(false)
+  // 対面（in-person）を一度でも買った/予約したことがあるか。あればTrialカードを隠す
+  const [hasInPersonHistory, setHasInPersonHistory] = useState(false)
   const router = useRouter()
 
   const onlinePlans = [
@@ -16,7 +18,9 @@ export default function SubscriptionPage() {
     { id: 'online', name: 'Online 4-Pack', price: 120, tickets: 4, description: '£30/lesson - Save £20 - 55 min', priceId: 'price_1SKoMdD1Jzw9CFossg3r23ni', popular: true }
   ]
 
+  // newOnly: true のカードは「対面が完全に初めての人」だけに表示する
   const inPersonPlans = [
+    { id: 'inperson_trial', name: 'In-Person Trial', price: 40, tickets: 1, description: 'First-time in-person students only - London or Manchester - 55 min', priceId: 'price_1Tg5GnD1Jzw9CFosPU2Jach9', newOnly: true },
     { id: 'inperson_single', name: 'In-Person Single', price: 50, tickets: 1, description: 'Pay as you go - London or Manchester - 55 min', priceId: 'price_1THK10D1Jzw9CFosCXP59bx0' },
     { id: 'inperson', name: 'In-Person 4-Pack', price: 180, tickets: 4, description: '£45/lesson - Save £20 - London or Manchester - 55 min', priceId: 'price_1SKoNHD1Jzw9CFos5bXzv5br', popular: true }
   ]
@@ -32,7 +36,29 @@ export default function SubscriptionPage() {
       return
     }
     setUser(user)
+    await checkInPersonHistory(user.id)
     setLoading(false)
+  }
+
+  // 対面系チケットを過去に持った/予約したことがあるか調べる。あればTrial非表示
+  const checkInPersonHistory = async (userId) => {
+    const inPersonTicketTypes = ['inperson_trial', 'in_person']
+    const inPersonLessonTypes = ['in_person']
+
+    const { data: tickets } = await supabase
+      .from('user_current_tickets')
+      .select('ticket_type')
+      .eq('user_id', userId)
+      .in('ticket_type', inPersonTicketTypes)
+
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('lesson_type')
+      .eq('student_id', userId)
+      .in('lesson_type', inPersonLessonTypes)
+
+    const had = (tickets && tickets.length > 0) || (bookings && bookings.length > 0)
+    setHasInPersonHistory(!!had)
   }
 
   const subscribeToPlan = async (plan) => {
@@ -59,6 +85,11 @@ export default function SubscriptionPage() {
       </div>
     )
   }
+
+  // 対面履歴がある人にはTrial（newOnly）カードを見せない
+  const visibleInPersonPlans = inPersonPlans.filter(
+    (plan) => !plan.newOnly || !hasInPersonHistory
+  )
 
   const PlanCard = ({ plan }) => (
     <div style={{
@@ -191,7 +222,7 @@ export default function SubscriptionPage() {
         }}>
           <h2 style={{ marginBottom: '30px', color: '#1e293b', fontSize: '24px', fontWeight: '600' }}>In-Person Lessons (London &amp; Manchester)</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-            {inPersonPlans.map((plan) => (
+            {visibleInPersonPlans.map((plan) => (
               <PlanCard key={plan.id} plan={plan} />
             ))}
           </div>

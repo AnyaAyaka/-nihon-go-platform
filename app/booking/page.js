@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 const TICKET_TO_LESSON_TYPE = {
   'online_trial': 'online_trial',
   'online': 'online',
+  'inperson_trial': 'in_person',
   'in_person': 'in_person',
   'premium': 'premium'
 }
