@@ -104,6 +104,21 @@ function BookingContent() {
       }
     }
 
+    // ロケーション優先で並べ替え: London -> Manchester -> East Coast(online) -> その他
+    const locationRank = (loc) => {
+      const l = (loc || '').toLowerCase()
+      if (l === 'london') return 0
+      if (l === 'manchester') return 1
+      if (l === 'online') return 2
+      return 3
+    }
+    filteredData = [...filteredData].sort((a, b) => {
+      const rankDiff = locationRank(a.location) - locationRank(b.location)
+      if (rankDiff !== 0) return rankDiff
+      // 同じロケーション内は display_name 順
+      return (a.display_name || '').localeCompare(b.display_name || '')
+    })
+
     setTeachers(filteredData)
   }
 
