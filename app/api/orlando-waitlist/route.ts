@@ -3,7 +3,8 @@
 // POST endpoint for the Orlando waitlist form on nihongo-world.com/orlando/
 // - Validates payload
 // - Inserts into public.orlando_waitlist (service role; table has RLS with no policies)
-// - Sends a confirmation email via Resend (only for new signups)
+// - Sends a confirmation email to the signup via Resend (new signups only)
+// - Sends an admin notification email with full signup details (new signups only)
 // - CORS: the form lives on nihongo-world.com, the API on app.nihongo-world.com
 //
 // Required env vars (should already exist in this app):
@@ -23,9 +24,11 @@ const ALLOWED_ORIGINS = [
 
 // nihongo-world.com is verified in Resend, so this sender works now.
 // Replies go to the live mailbox until the info@nihongo-world.com alias
-// exists (Google Workspace domain alias) - then REPLY_TO can be removed.
+// exists (Google Workspace domain alias) - then REPLY_TO can be removed
+// and ADMIN_EMAIL switched to info@nihongo-world.com.
 const FROM_ADDRESS = "Nihon GO! World <info@nihongo-world.com>";
 const REPLY_TO = "info@nihongolondon.com";
+const ADMIN_EMAIL = "info@nihongolondon.com";
 
 const VALID_FORMATS = ["online", "in_person", "either"] as const;
 const VALID_AREAS = [
@@ -38,6 +41,28 @@ const VALID_AREAS = [
 ] as const;
 const VALID_LEVELS = ["beginner", "some", "n5n4", "n3plus", "heritage"] as const;
 const VALID_INTERESTS = ["jlpt", "anime", "business", "kids", "travel"];
+
+// Human-readable labels for the admin notification
+const FORMAT_LABELS: Record<string, string> = {
+  online: "Online",
+  in_person: "In person (Orlando)",
+  either: "Either online or in person",
+};
+const AREA_LABELS: Record<string, string> = {
+  orlando: "Orlando / Central Florida",
+  tampa: "Tampa Bay area",
+  miami: "Miami / South Florida",
+  jacksonville: "Jacksonville / North Florida",
+  other_fl: "Elsewhere in Florida",
+  outside_fl: "Outside Orlando area / online only",
+};
+const LEVEL_LABELS: Record<string, string> = {
+  beginner: "Complete beginner",
+  some: "Knows some basics",
+  n5n4: "Around JLPT N5-N4",
+  n3plus: "JLPT N3 or above",
+  heritage: "Heritage speaker",
+};
 
 // ---- helpers ----------------------------------------------------------
 function corsHeaders(origin: string | null) {
@@ -58,6 +83,14 @@ function json(
   origin: string | null
 ) {
   return NextResponse.json(body, { status, headers: corsHeaders(origin) });
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ---- OPTIONS (CORS preflight) ----------------------------------------
@@ -130,7 +163,7 @@ export async function POST(req: NextRequest) {
   let isNewSignup = true;
   if (insertError) {
     // 23505 = unique violation -> already on the list. Treat as success,
-    // skip the email (no duplicate confirmations, no info leaked).
+    // skip the emails (no duplicate confirmations, no info leaked).
     if (insertError.code === "23505") {
       isNewSignup = false;
     } else {
@@ -143,10 +176,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // -- confirmation email (best-effort: signup succeeds even if it fails)
+  // -- emails (best-effort: signup succeeds even if either send fails) --
   if (isNewSignup) {
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+
+    // 1) confirmation to the signup
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY!);
       await resend.emails.send({
         from: FROM_ADDRESS,
         to: email,
@@ -157,14 +192,35 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("orlando_waitlist confirmation email failed:", e);
     }
+
+    // 2) admin notification with full details
+    try {
+      const inPersonSignal = format === "in_person" || format === "either";
+      const formatLabel = FORMAT_LABELS[format] ?? format;
+      const interestLabel =
+        interests.length > 0 ? interests.join(", ").toUpperCase() : "none selected";
+      const subject = inPersonSignal
+        ? `[IN-PERSON] New Orlando waitlist signup - ${formatLabel} (${interestLabel})`
+        : `New Orlando waitlist signup - Online (${interestLabel})`;
+
+      await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: ADMIN_EMAIL,
+        replyTo: email, // reply goes straight to the signup
+        subject,
+        html: buildAdminHtml({ name, email, format, interests, area, level }),
+      });
+    } catch (e) {
+      console.error("orlando_waitlist admin notification failed:", e);
+    }
   }
 
   return json({ ok: true }, 200, origin);
 }
 
-// ---- email template ---------------------------------------------------
+// ---- email templates ---------------------------------------------------
 function buildConfirmationHtml(name: string): string {
-  const safeName = name.replace(/[<>&"]/g, "");
+  const safeName = escapeHtml(name);
   return `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;color:#333;line-height:1.6;">
   <div style="background:#1e293b;padding:28px 32px;border-radius:12px 12px 0 0;">
@@ -187,6 +243,51 @@ function buildConfirmationHtml(name: string): string {
       Nihon GO! World &mdash; London &middot; Manchester &middot; Orlando (coming soon)<br>
       Operated by A-Digital Works Ltd, 150 New Cavendish Street, London W1W 6YJ<br>
       You received this because you joined the Orlando waitlist at nihongo-world.com. Reply to this email to unsubscribe.
+    </p>
+  </div>
+</div>`;
+}
+
+function buildAdminHtml(data: {
+  name: string;
+  email: string;
+  format: string;
+  interests: string[];
+  area: string;
+  level: string;
+}): string {
+  const rows: Array<[string, string]> = [
+    ["Name", escapeHtml(data.name)],
+    ["Email", escapeHtml(data.email)],
+    ["Format", FORMAT_LABELS[data.format] ?? data.format],
+    [
+      "Interests",
+      data.interests.length > 0
+        ? escapeHtml(data.interests.join(", "))
+        : "(none selected)",
+    ],
+    ["Area", AREA_LABELS[data.area] ?? data.area],
+    ["Level", LEVEL_LABELS[data.level] ?? data.level],
+    ["Signed up", new Date().toISOString()],
+  ];
+
+  const tableRows = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:8px 16px 8px 0;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:top;">${k}</td><td style="padding:8px 0;color:#1e293b;">${v}</td></tr>`
+    )
+    .join("");
+
+  return `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;color:#333;line-height:1.6;">
+  <div style="background:#1e293b;padding:20px 28px;border-radius:12px 12px 0 0;">
+    <p style="color:#fb7185;font-weight:700;font-size:16px;margin:0;">Nihon GO! Orlando &mdash; New Waitlist Signup</p>
+  </div>
+  <div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 12px 12px;padding:24px 28px;">
+    <table style="border-collapse:collapse;width:100%;font-size:14px;">${tableRows}</table>
+    <p style="font-size:13px;color:#94a3b8;margin:20px 0 0;border-top:1px solid #e2e8f0;padding-top:14px;">
+      Reply to this email to contact the signup directly.<br>
+      Full list: Supabase &rarr; orlando_waitlist
     </p>
   </div>
 </div>`;
