@@ -21,8 +21,11 @@ const ALLOWED_ORIGINS = [
   "https://www.nihongo-world.com",
 ];
 
-// Adjust to whichever verified sender you already use with Resend:
+// nihongo-world.com is verified in Resend, so this sender works now.
+// Replies go to the live mailbox until the info@nihongo-world.com alias
+// exists (Google Workspace domain alias) - then REPLY_TO can be removed.
 const FROM_ADDRESS = "Nihon GO! World <info@nihongo-world.com>";
+const REPLY_TO = "info@nihongolondon.com";
 
 const VALID_FORMATS = ["online", "in_person", "either"] as const;
 const VALID_AREAS = [
@@ -147,6 +150,7 @@ export async function POST(req: NextRequest) {
       await resend.emails.send({
         from: FROM_ADDRESS,
         to: email,
+        replyTo: REPLY_TO,
         subject: "You're on the Nihon GO! Orlando waitlist",
         html: buildConfirmationHtml(name),
       });
