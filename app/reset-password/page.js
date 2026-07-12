@@ -14,21 +14,20 @@ export default function ResetPasswordPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setSessionReady(true)
-      }
-    })
+    let isRecovery = false
 
-    // Check if we already have a session (user navigated here after event fired)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        isRecovery = true
         setSessionReady(true)
+      } else if (event === 'SIGNED_IN' && !isRecovery) {
+        // Not a password recovery session (e.g. signup confirmation) — redirect away
+        router.push('/dashboard')
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
