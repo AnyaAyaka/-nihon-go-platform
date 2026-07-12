@@ -10,6 +10,12 @@ export default function ProfilePage() {
   const [role, setRole] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -61,6 +67,37 @@ export default function ProfilePage() {
     }
 
     setSaving(false)
+  }
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordMessage('')
+
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters.')
+      return
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+
+    setPasswordSaving(true)
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+    if (error) {
+      setPasswordError(error.message)
+    } else {
+      setPasswordMessage('Password updated successfully!')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmNewPassword('')
+    }
+
+    setPasswordSaving(false)
   }
 
   if (loading) {
@@ -224,6 +261,118 @@ export default function ProfilePage() {
             }}
           >
             Back to Dashboard
+          </button>
+        </form>
+
+        <hr style={{ margin: '40px 0', border: 'none', borderTop: '2px solid #e2e8f0' }} />
+
+        <h2 style={{
+          margin: '0 0 24px 0',
+          fontSize: '24px',
+          fontWeight: '700',
+          color: '#1e293b'
+        }}>
+          Change Password
+        </h2>
+
+        {passwordError && (
+          <div style={{
+            padding: '12px 16px',
+            marginBottom: '20px',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            color: '#dc2626',
+            fontSize: '14px'
+          }}>
+            {passwordError}
+          </div>
+        )}
+
+        {passwordMessage && (
+          <div style={{
+            padding: '12px 16px',
+            marginBottom: '20px',
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            borderRadius: '8px',
+            color: '#16a34a',
+            fontSize: '14px'
+          }}>
+            {passwordMessage}
+          </div>
+        )}
+
+        <form onSubmit={handlePasswordChange}>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontSize: '15px',
+              fontWeight: '600',
+              color: '#1e293b'
+            }}>
+              New Password
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '28px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              fontSize: '15px',
+              fontWeight: '600',
+              color: '#1e293b'
+            }}>
+              Confirm New Password
+            </label>
+            <input
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '15px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={passwordSaving}
+            style={{
+              width: '100%',
+              padding: '14px',
+              background: passwordSaving ? '#94a3b8' : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '700',
+              cursor: passwordSaving ? 'not-allowed' : 'pointer',
+              boxShadow: passwordSaving ? 'none' : '0 4px 12px rgba(99, 102, 241, 0.3)'
+            }}
+          >
+            {passwordSaving ? 'Updating...' : 'Change Password'}
           </button>
         </form>
       </div>

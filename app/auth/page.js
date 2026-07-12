@@ -14,6 +14,11 @@ export default function AuthPage() {
     const paymentIntent = new URLSearchParams(window.location.search).get('payment')
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        router.push('/reset-password')
+        return
+      }
+
       if (session) {
 
         // 新規登録通知
@@ -66,6 +71,7 @@ export default function AuthPage() {
         appearance={{ theme: ThemeSupa }}
         providers={[]}
         onlyThirdPartyProviders={false}
+        redirectTo={typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined}
       />
     </div>
   )
