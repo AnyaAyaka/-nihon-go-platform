@@ -10,6 +10,9 @@ export default function SubscriptionPage() {
   const [subscribing, setSubscribing] = useState(false)
   // 対面（in-person）を一度でも買った/予約したことがあるか。あればTrialカードを隠す
   const [hasInPersonHistory, setHasInPersonHistory] = useState(false)
+  // 受講人数トグル。1 = 通常、2 = ペア
+  const [onlineLearners, setOnlineLearners] = useState(1)
+  const [inPersonLearners, setInPersonLearners] = useState(1)
   const router = useRouter()
 
   const onlinePlans = [
@@ -105,6 +108,51 @@ export default function SubscriptionPage() {
   )
   const visibleInPersonPairPlans = inPersonPairPlans.filter(
     (plan) => !plan.newOnly || !hasInPersonHistory
+  )
+
+  const LearnerToggle = ({ value, onChange }) => (
+    <div style={{
+      display: 'inline-flex',
+      background: '#f1f5f9',
+      borderRadius: '12px',
+      padding: '4px',
+      gap: '4px'
+    }}>
+      {[1, 2].map((n) => (
+        <button
+          key={n}
+          onClick={() => onChange(n)}
+          style={{
+            padding: '8px 18px',
+            border: 'none',
+            borderRadius: '9px',
+            background: value === n ? 'white' : 'transparent',
+            color: value === n ? '#1e293b' : '#64748b',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            boxShadow: value === n ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          {n === 1 ? '1 learner' : '2 learners'}
+        </button>
+      ))}
+    </div>
+  )
+
+  const SectionHeader = ({ title, value, onChange }) => (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '15px',
+      marginBottom: '10px'
+    }}>
+      <h2 style={{ margin: 0, color: '#1e293b', fontSize: '24px', fontWeight: '600' }}>{title}</h2>
+      <LearnerToggle value={value} onChange={onChange} />
+    </div>
   )
 
   const PlanCard = ({ plan }) => (
@@ -234,24 +282,16 @@ export default function SubscriptionPage() {
           marginBottom: '30px',
           boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
         }}>
-          <h2 style={{ marginBottom: '30px', color: '#1e293b', fontSize: '24px', fontWeight: '600' }}>Online Lessons</h2>
+          <SectionHeader title="Online Lessons" value={onlineLearners} onChange={setOnlineLearners} />
+          <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px', minHeight: '20px' }}>
+            {onlineLearners === 2
+              ? 'For two learners at a similar level. Both join the same 55-minute session, and one ticket covers both.'
+              : 'One-to-one lessons with a certified teacher, 55 minutes each.'}
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-            {onlinePlans.map((plan) => (
+            {(onlineLearners === 2 ? onlinePairPlans : onlinePlans).map((plan) => (
               <PlanCard key={plan.id} plan={plan} />
             ))}
-          </div>
-
-          {/* Online pair lessons */}
-          <div style={{ marginTop: '35px', paddingTop: '30px', borderTop: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: '0 0 6px 0', color: '#1e293b', fontSize: '19px', fontWeight: '600' }}>Learning together? Online pair rates</h3>
-            <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px' }}>
-              For two learners at a similar level. Both join the same 55-minute session. One ticket covers the session for both.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-              {onlinePairPlans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
-              ))}
-            </div>
           </div>
         </div>
 
@@ -262,24 +302,16 @@ export default function SubscriptionPage() {
           padding: '30px',
           boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
         }}>
-          <h2 style={{ marginBottom: '30px', color: '#1e293b', fontSize: '24px', fontWeight: '600' }}>In-Person Lessons (London &amp; Manchester)</h2>
+          <SectionHeader title="In-Person Lessons (London & Manchester)" value={inPersonLearners} onChange={setInPersonLearners} />
+          <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px', minHeight: '20px' }}>
+            {inPersonLearners === 2
+              ? 'Two learners in the same session at our London or Manchester location. Corporate and group training is quoted separately - please contact us.'
+              : 'Face-to-face lessons at our London or Manchester location, 55 minutes each.'}
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-            {visibleInPersonPlans.map((plan) => (
+            {(inPersonLearners === 2 ? visibleInPersonPairPlans : visibleInPersonPlans).map((plan) => (
               <PlanCard key={plan.id} plan={plan} />
             ))}
-          </div>
-
-          {/* In-person pair lessons */}
-          <div style={{ marginTop: '35px', paddingTop: '30px', borderTop: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: '0 0 6px 0', color: '#1e293b', fontSize: '19px', fontWeight: '600' }}>Learning together? In-person pair rates</h3>
-            <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px' }}>
-              Two learners in the same session at our London or Manchester location. Corporate and group training is quoted separately - please contact us.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-              {visibleInPersonPairPlans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
-              ))}
-            </div>
           </div>
         </div>
       </div>
