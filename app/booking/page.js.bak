@@ -7,27 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 const TICKET_TO_LESSON_TYPE = {
   'online_trial': 'online_trial',
   'online': 'online',
-  'inperson_trial': 'in_person',
   'in_person': 'in_person',
-  'premium': 'premium',
-  // ペアチケット。講師の絞り込みは通常チケットと同じ扱い
-  'online_trial_pair': 'online_trial',
-  'online_pair': 'online',
-  'inperson_trial_pair': 'in_person',
-  'in_person_pair': 'in_person'
-}
-
-// 予約画面でチケット名を表示するためのラベル
-const TICKET_LABELS = {
-  'online_trial': 'Online Trial',
-  'online': 'Online',
-  'inperson_trial': 'In-Person Trial',
-  'in_person': 'In-Person',
-  'premium': 'Premium',
-  'online_trial_pair': 'Online Trial (2 learners)',
-  'online_pair': 'Online (2 learners)',
-  'inperson_trial_pair': 'In-Person Trial (2 learners)',
-  'in_person_pair': 'In-Person (2 learners)'
+  'premium': 'premium'
 }
 
 const LESSON_DURATION_MINUTES = 55
@@ -121,21 +102,6 @@ function BookingContent() {
         filteredData = filteredData.filter(t => !restrictedTeacherUserIds.includes(t.user_id))
       }
     }
-
-    // ロケーション優先で並べ替え: London -> Manchester -> East Coast(online) -> その他
-    const locationRank = (loc) => {
-      const l = (loc || '').toLowerCase()
-      if (l === 'london') return 0
-      if (l === 'manchester') return 1
-      if (l === 'online') return 2
-      return 3
-    }
-    filteredData = [...filteredData].sort((a, b) => {
-      const rankDiff = locationRank(a.location) - locationRank(b.location)
-      if (rankDiff !== 0) return rankDiff
-      // 同じロケーション内は display_name 順
-      return (a.display_name || '').localeCompare(b.display_name || '')
-    })
 
     setTeachers(filteredData)
   }

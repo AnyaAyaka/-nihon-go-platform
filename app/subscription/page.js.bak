@@ -8,8 +8,6 @@ export default function SubscriptionPage() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [subscribing, setSubscribing] = useState(false)
-  // 対面（in-person）を一度でも買った/予約したことがあるか。あればTrialカードを隠す
-  const [hasInPersonHistory, setHasInPersonHistory] = useState(false)
   const router = useRouter()
 
   const onlinePlans = [
@@ -18,24 +16,9 @@ export default function SubscriptionPage() {
     { id: 'online', name: 'Online 4-Pack', price: 120, tickets: 4, description: '£30/lesson - Save £20 - 55 min', priceId: 'price_1SKoMdD1Jzw9CFossg3r23ni', popular: true }
   ]
 
-  // ペア（2名同時受講）。1枚のチケットで2名分のレッスンを消化する
-  const onlinePairPlans = [
-    { id: 'online_trial_pair', name: 'Online Trial (2 learners)', price: 32, tickets: 1, learners: 2, description: 'First-time students only - £16 each - 55 min', priceId: 'price_1TzfwUD1Jzw9CFosbMzoijj6', newOnly: true },
-    { id: 'online_pair_single', name: 'Online Single (2 learners)', price: 49, tickets: 1, learners: 2, description: 'Pay as you go - £24.50 each - 55 min', priceId: 'price_1TzfxKD1Jzw9CFos2aN50tfv' },
-    { id: 'online_pair', name: 'Online 4-Pack (2 learners)', price: 168, tickets: 4, learners: 2, description: '£21 each per lesson - 55 min', priceId: 'price_1TzfyPD1Jzw9CFos3GjCTV28', popular: true }
-  ]
-
-  // newOnly: true のカードは「対面が完全に初めての人」だけに表示する
   const inPersonPlans = [
-    { id: 'inperson_trial', name: 'In-Person Trial', price: 40, tickets: 1, description: 'First-time in-person students only - London or Manchester - 55 min', priceId: 'price_1Tg5GnD1Jzw9CFosPU2Jach9', newOnly: true },
     { id: 'inperson_single', name: 'In-Person Single', price: 50, tickets: 1, description: 'Pay as you go - London or Manchester - 55 min', priceId: 'price_1THK10D1Jzw9CFosCXP59bx0' },
     { id: 'inperson', name: 'In-Person 4-Pack', price: 180, tickets: 4, description: '£45/lesson - Save £20 - London or Manchester - 55 min', priceId: 'price_1SKoNHD1Jzw9CFos5bXzv5br', popular: true }
-  ]
-
-  const inPersonPairPlans = [
-    { id: 'inperson_trial_pair', name: 'In-Person Trial (2 learners)', price: 60, tickets: 1, learners: 2, description: 'First-time in-person students only - £30 each - London or Manchester - 55 min', priceId: 'price_1TzfeGD1Jzw9CFos3Jp96S8A', newOnly: true },
-    { id: 'inperson_pair_single', name: 'In-Person Single (2 learners)', price: 70, tickets: 1, learners: 2, description: 'Pay as you go - £35 each - London or Manchester - 55 min', priceId: 'price_1TzfgLD1Jzw9CFosW5qXrqMn' },
-    { id: 'inperson_pair', name: 'In-Person 4-Pack (2 learners)', price: 260, tickets: 4, learners: 2, description: '£32.50 each per lesson - London or Manchester - 55 min', priceId: 'price_1TzfhND1Jzw9CFospXLOaebd', popular: true }
   ]
 
   useEffect(() => {
@@ -49,29 +32,7 @@ export default function SubscriptionPage() {
       return
     }
     setUser(user)
-    await checkInPersonHistory(user.id)
     setLoading(false)
-  }
-
-  // 対面系チケットを過去に持った/予約したことがあるか調べる。あればTrial非表示
-  const checkInPersonHistory = async (userId) => {
-    const inPersonTicketTypes = ['inperson_trial', 'in_person', 'inperson_trial_pair', 'in_person_pair']
-    const inPersonLessonTypes = ['in_person']
-
-    const { data: tickets } = await supabase
-      .from('user_current_tickets')
-      .select('ticket_type')
-      .eq('user_id', userId)
-      .in('ticket_type', inPersonTicketTypes)
-
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('lesson_type')
-      .eq('student_id', userId)
-      .in('lesson_type', inPersonLessonTypes)
-
-    const had = (tickets && tickets.length > 0) || (bookings && bookings.length > 0)
-    setHasInPersonHistory(!!had)
   }
 
   const subscribeToPlan = async (plan) => {
@@ -99,14 +60,6 @@ export default function SubscriptionPage() {
     )
   }
 
-  // 対面履歴がある人にはTrial（newOnly）カードを見せない
-  const visibleInPersonPlans = inPersonPlans.filter(
-    (plan) => !plan.newOnly || !hasInPersonHistory
-  )
-  const visibleInPersonPairPlans = inPersonPairPlans.filter(
-    (plan) => !plan.newOnly || !hasInPersonHistory
-  )
-
   const PlanCard = ({ plan }) => (
     <div style={{
       border: plan.popular ? '3px solid #fb7185' : '2px solid #e1e5e9',
@@ -133,19 +86,6 @@ export default function SubscriptionPage() {
         }}>BEST VALUE</div>
       )}
       <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', color: '#1e293b' }}>{plan.name}</h3>
-      {plan.learners > 1 && (
-        <div style={{
-          display: 'inline-block',
-          alignSelf: 'center',
-          background: '#fff1f2',
-          color: '#fb7185',
-          border: '1px solid #fecdd3',
-          borderRadius: '999px',
-          padding: '4px 12px',
-          fontSize: '12px',
-          fontWeight: '600'
-        }}>{plan.learners} learners - one session</div>
-      )}
       <div style={{ margin: '20px 0' }}>
         <span style={{ fontSize: '48px', fontWeight: '700', color: plan.popular ? '#fb7185' : '#1e293b' }}>£{plan.price}</span>
       </div>
@@ -240,19 +180,6 @@ export default function SubscriptionPage() {
               <PlanCard key={plan.id} plan={plan} />
             ))}
           </div>
-
-          {/* Online pair lessons */}
-          <div style={{ marginTop: '35px', paddingTop: '30px', borderTop: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: '0 0 6px 0', color: '#1e293b', fontSize: '19px', fontWeight: '600' }}>Learning together? Online pair rates</h3>
-            <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px' }}>
-              For two learners at a similar level. Both join the same 55-minute session. One ticket covers the session for both.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-              {onlinePairPlans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* In-Person Lessons */}
@@ -264,22 +191,9 @@ export default function SubscriptionPage() {
         }}>
           <h2 style={{ marginBottom: '30px', color: '#1e293b', fontSize: '24px', fontWeight: '600' }}>In-Person Lessons (London &amp; Manchester)</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-            {visibleInPersonPlans.map((plan) => (
+            {inPersonPlans.map((plan) => (
               <PlanCard key={plan.id} plan={plan} />
             ))}
-          </div>
-
-          {/* In-person pair lessons */}
-          <div style={{ marginTop: '35px', paddingTop: '30px', borderTop: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: '0 0 6px 0', color: '#1e293b', fontSize: '19px', fontWeight: '600' }}>Learning together? In-person pair rates</h3>
-            <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px' }}>
-              Two learners in the same session at our London or Manchester location. Corporate and group training is quoted separately - please contact us.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-              {visibleInPersonPairPlans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
-              ))}
-            </div>
           </div>
         </div>
       </div>

@@ -227,6 +227,20 @@ export default function TeacherDashboard({ user, profile }) {
                   <div>
                     <p style={{ fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>
                       {lesson.profiles?.full_name || 'Student'}
+                      {lesson.party_size > 1 && (
+                        <span style={{
+                          display: 'inline-block',
+                          marginLeft: '8px',
+                          padding: '2px 10px',
+                          backgroundColor: '#fff1f2',
+                          color: '#fb7185',
+                          border: '1px solid #fecdd3',
+                          borderRadius: '999px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          verticalAlign: 'middle'
+                        }}>{lesson.party_size} learners</span>
+                      )}
                     </p>
                     <p style={{ color: '#64748b', fontSize: '14px' }}>
                       {lesson.profiles?.email}

@@ -22,18 +22,9 @@ const PRICE_TO_TICKET_TYPE = {
   'price_1SKoIUD1Jzw9CFosLC6YJDbE': { type: 'online_trial', tickets: 1, name: 'Online Trial', price: '£23' },
   'price_1THK0jD1Jzw9CFosdvfDwLmB': { type: 'online', tickets: 1, name: 'Online Single', price: '£35' },
   'price_1SKoMdD1Jzw9CFossg3r23ni': { type: 'online', tickets: 4, name: 'Online 4-Pack', price: '£120' },
-  'price_1Tg5GnD1Jzw9CFosPU2Jach9': { type: 'inperson_trial', tickets: 1, name: 'In-Person Trial', price: '£40' },
   'price_1THK10D1Jzw9CFosCXP59bx0': { type: 'in_person', tickets: 1, name: 'In-Person Single', price: '£50' },
   'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4-Pack', price: '£180' },
-  'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets (Legacy)', price: '£140' },
-
-  // --- Pair lessons (2 learners in one session) ---
-  'price_1TzfwUD1Jzw9CFosbMzoijj6': { type: 'online_trial_pair', tickets: 1, partySize: 2, name: 'Online Trial (2 learners)', price: '£32' },
-  'price_1TzfxKD1Jzw9CFos2aN50tfv': { type: 'online_pair', tickets: 1, partySize: 2, name: 'Online Single (2 learners)', price: '£49' },
-  'price_1TzfyPD1Jzw9CFos3GjCTV28': { type: 'online_pair', tickets: 4, partySize: 2, name: 'Online 4-Pack (2 learners)', price: '£168' },
-  'price_1TzfeGD1Jzw9CFos3Jp96S8A': { type: 'inperson_trial_pair', tickets: 1, partySize: 2, name: 'In-Person Trial (2 learners)', price: '£60' },
-  'price_1TzfgLD1Jzw9CFosW5qXrqMn': { type: 'in_person_pair', tickets: 1, partySize: 2, name: 'In-Person Single (2 learners)', price: '£70' },
-  'price_1TzfhND1Jzw9CFospXLOaebd': { type: 'in_person_pair', tickets: 4, partySize: 2, name: 'In-Person 4-Pack (2 learners)', price: '£260' }
+  'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets (Legacy)', price: '£140' }
 }
 
 export async function POST(request) {
@@ -153,7 +144,6 @@ export async function POST(request) {
           user_id: userId,
           ticket_type: ticketInfo.type,
           remaining_tickets: ticketInfo.tickets,
-          party_size: ticketInfo.partySize || 1,
           expires_at: expiresAt.toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -176,7 +166,6 @@ export async function POST(request) {
             <li><strong>Product:</strong> ${ticketInfo.name}</li>
             <li><strong>Price:</strong> ${ticketInfo.price}</li>
             <li><strong>Tickets:</strong> ${ticketInfo.tickets}</li>
-            <li><strong>Learners per session:</strong> ${ticketInfo.partySize || 1}</li>
           </ul>
           <p><strong>Time:</strong> ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}</p>
         `

@@ -142,6 +142,21 @@ async function sendBookingEmails(booking, teacherData, studentProfile) {
   }
 }
 
+// ペアチケットは1枚で2名分。lesson_type は既存の値に正規化して保存する
+const TICKET_TO_LESSON_TYPE = {
+  online_trial: 'online_trial',
+  online: 'online',
+  inperson_trial: 'inperson_trial',
+  in_person: 'in_person',
+  premium: 'premium',
+  online_trial_pair: 'online_trial',
+  online_pair: 'online',
+  inperson_trial_pair: 'inperson_trial',
+  in_person_pair: 'in_person'
+}
+
+const PAIR_TICKET_TYPES = ['online_trial_pair', 'online_pair', 'inperson_trial_pair', 'in_person_pair']
+
 export async function POST(request) {
   try {
     const { slotId, teacherUserId, studentUserId, ticketType, startTime, endTime } = await request.json()
@@ -190,7 +205,8 @@ export async function POST(request) {
         student_id: studentUserId,
         teacher_id: slotData.teacher_id,
         slot_id: slotId,
-        lesson_type: ticketType,
+        lesson_type: TICKET_TO_LESSON_TYPE[ticketType] || ticketType,
+        party_size: PAIR_TICKET_TYPES.includes(ticketType) ? 2 : (ticket.party_size || 1),
         start_time: startTime,
         end_time: endTime,
         status: 'confirmed',
