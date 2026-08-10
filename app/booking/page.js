@@ -4,11 +4,14 @@ import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+// チケット種別 → 講師の対応可否を照合するための lesson_type（teachers.lesson_types と突き合わせる）。
+// in_person_90 は teachers.lesson_types に存在しないため、in_person 対応講師 = 90分も可 とみなす。
 const TICKET_TO_LESSON_TYPE = {
   'online_trial': 'online_trial',
   'online': 'online',
   'inperson_trial': 'in_person',
   'in_person': 'in_person',
+  'in_person_90': 'in_person',
   'premium': 'premium',
   // ペアチケット。講師の絞り込みは通常チケットと同じ扱い
   'online_trial_pair': 'online_trial',
@@ -23,6 +26,7 @@ const TICKET_LABELS = {
   'online': 'Online',
   'inperson_trial': 'In-Person Trial',
   'in_person': 'In-Person',
+  'in_person_90': 'In-Person (90 min)',
   'premium': 'Premium',
   'online_trial_pair': 'Online Trial (2 learners)',
   'online_pair': 'Online (2 learners)',
@@ -30,7 +34,31 @@ const TICKET_LABELS = {
   'in_person_pair': 'In-Person (2 learners)'
 }
 
-const LESSON_DURATION_MINUTES = 55
+// レッスン尺の設計:
+//  - 実尺 (actual): bookings.end_time / 確認画面 / メールに使う値。標準55分、in_person_90 は85分。
+//    スロットが「空き枠に収まるか」の判定にも実尺を使う（既存55分の挙動を維持）。
+//  - バッファ (buffer): 実尺の後ろに付く占有分。重複判定のフットプリント [start, end+buffer) に使う。
+//    → 実質の占有は 標準60分 / 90分だが、これは「重複判定」にのみ効かせ、開始候補の刻みには使わない。
+//  - ステップ (step): 開始候補の刻み。各空き枠の開始を起点に 30分刻み で候補を出す（従来は60分固定）。
+//    60は30の倍数なので、旧・毎時開始スロットは新スロットの部分集合＝従来スロットは必ず残る。
+// キーは ticket_type / lesson_type どちらでも引ける（値の体系が共通）。
+const LESSON_BUFFER_MINUTES = 5
+const SLOT_STEP_MINUTES = 30
+const LESSON_DURATIONS = {
+  'online_trial': 55,
+  'online': 55,
+  'inperson_trial': 55,
+  'in_person': 55,
+  'in_person_90': 85,
+  'premium': 55,
+  'online_trial_pair': 55,
+  'online_pair': 55,
+  'inperson_trial_pair': 55,
+  'in_person_pair': 55
+}
+const DEFAULT_LESSON_MINUTES = 55
+// 実尺（分）
+const lessonMinutes = (type) => LESSON_DURATIONS[type] ?? DEFAULT_LESSON_MINUTES
 
 function BookingContent() {
   const [user, setUser] = useState(null)
@@ -39,6 +67,8 @@ function BookingContent() {
   const [teachers, setTeachers] = useState([])
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [availableSlots, setAvailableSlots] = useState([])
+  const [existingBookings, setExistingBookings] = useState([])
+  const [selectedTicketType, setSelectedTicketType] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -164,6 +194,18 @@ function BookingContent() {
     if (slots) {
       setAvailableSlots(slots)
     }
+
+    // 既存予約（キャンセル以外・未来分）を取得し、スロットの重複除外に使う。
+    // 90分予約(占有90分)と55分スロット、およびその逆の重複を時間レンジで弾く。
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('start_time, end_time, status, lesson_type')
+      .eq('teacher_id', teacherData.id)
+      .neq('status', 'cancelled')
+      .gte('end_time', minBookingTime.toISOString())
+      .order('start_time')
+
+    setExistingBookings(bookings || [])
   }
 
   const getAvailableTicketsForTeacher = (teacher) => {
@@ -177,10 +219,31 @@ function BookingContent() {
     return result
   }
 
+  // この講師で使えるチケット種別（重複排除）をレッスン選択肢として返す
+  const getLessonOptionsForTeacher = (teacher) => {
+    const tickets = getAvailableTicketsForTeacher(teacher)
+    const seen = new Set()
+    const options = []
+    tickets.forEach((t) => {
+      if (seen.has(t.ticket_type)) return
+      seen.add(t.ticket_type)
+      options.push({
+        ticketType: t.ticket_type,
+        label: TICKET_LABELS[t.ticket_type] || t.ticket_type,
+        minutes: lessonMinutes(t.ticket_type)
+      })
+    })
+    return options
+  }
+
   const handleSelectTeacher = (teacher) => {
     setSelectedTeacher(teacher)
     setAvailableSlots([])
+    setExistingBookings([])
     setSelectedDate(null)
+    const options = getLessonOptionsForTeacher(teacher)
+    // 既定は従来通り先頭のチケット（＝現行挙動を維持）
+    setSelectedTicketType(options[0]?.ticketType || null)
     fetchAvailableSlots(teacher.user_id)
   }
 
@@ -201,6 +264,11 @@ function BookingContent() {
         return
       }
 
+      // 選択中のレッスン種別（既定は先頭）。90分は in_person_90 が渡る。
+      const ticketType = (selectedTicketType && availableTickets.some(t => t.ticket_type === selectedTicketType))
+        ? selectedTicketType
+        : availableTickets[0].ticket_type
+
       const response = await fetch('/api/bookings/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -208,7 +276,7 @@ function BookingContent() {
           slotId: selectedSlot.originalSlotId,
           teacherUserId: selectedTeacher.user_id,
           studentUserId: user.id,
-          ticketType: availableTickets[0].ticket_type,
+          ticketType,
           startTime: selectedSlot.start_time_utc,
           endTime: selectedSlot.end_time_utc
         })
@@ -229,38 +297,59 @@ function BookingContent() {
     }
   }
 
-  const splitSlotsInto55MinuteChunks = (slots) => {
-    const splitSlots = []
-    
+  // 指定チケット種別の実尺に基づいてスロットを生成する。
+  //  - 枠内判定は実尺（start + 実尺 <= 枠終了）。既存の55分挙動に合わせる。
+  //  - 開始候補は各空き枠の開始起点から 30分刻み（12:30/15:30 等の開始に対応）。
+  //  - 既存予約との重複はフットプリント [start, end + バッファ) 同士のレンジ重なりで除外。
+  //    これにより 90分予約が55分スロットを弾き、逆も成立する。空き枠は誤除外しない
+  //    （バッファは既存予約に対してのみ効く）。
+  const generateSlots = (slots, ticketType, bookings) => {
+    if (!ticketType) return []
+    const actualMs = lessonMinutes(ticketType) * 60 * 1000
+    const stepMs = SLOT_STEP_MINUTES * 60 * 1000
+    const bufferMs = LESSON_BUFFER_MINUTES * 60 * 1000
+
+    // 既存予約のフットプリント（占有区間）を先に算出
+    const bookedRanges = (bookings || []).map(b => ({
+      start: new Date(b.start_time).getTime(),
+      end: new Date(b.end_time).getTime() + bufferMs
+    }))
+
+    const result = []
     slots.forEach(slot => {
-      const startTime = new Date(slot.start_time_utc)
-      const endTime = new Date(slot.end_time_utc)
-      
-      let currentStart = new Date(startTime)
-      
-      while (currentStart < endTime) {
-        const currentEnd = new Date(currentStart.getTime() + LESSON_DURATION_MINUTES * 60 * 1000)
-        
-        if (currentEnd <= endTime) {
-          splitSlots.push({
-            id: `${slot.id}-${currentStart.getTime()}`,
-            originalSlotId: slot.id,
-            teacher_id: slot.teacher_id,
-            start_time_utc: currentStart.toISOString(),
-            end_time_utc: currentEnd.toISOString(),
-            is_available: slot.is_available
-          })
+      const availStart = new Date(slot.start_time_utc)
+      const availEnd = new Date(slot.end_time_utc)
+
+      let currentStart = new Date(availStart)
+      while (currentStart < availEnd) {
+        const currentEnd = new Date(currentStart.getTime() + actualMs)
+
+        if (currentEnd <= availEnd) {
+          const candStart = currentStart.getTime()
+          const candEnd = currentEnd.getTime() + bufferMs // 候補もバッファ込みで判定
+          const overlaps = bookedRanges.some(r => candStart < r.end && candEnd > r.start)
+
+          if (!overlaps) {
+            result.push({
+              id: `${slot.id}-${currentStart.getTime()}`,
+              originalSlotId: slot.id,
+              teacher_id: slot.teacher_id,
+              start_time_utc: currentStart.toISOString(),
+              end_time_utc: currentEnd.toISOString(), // 実尺
+              is_available: slot.is_available
+            })
+          }
         }
-        
-        currentStart = new Date(currentStart.getTime() + 60 * 60 * 1000)
+
+        currentStart = new Date(currentStart.getTime() + stepMs)
       }
     })
-    
-    return splitSlots
+
+    return result
   }
 
   const getSlotsByDate = () => {
-    const splitSlots = splitSlotsInto55MinuteChunks(availableSlots)
+    const splitSlots = generateSlots(availableSlots, selectedTicketType, existingBookings)
     const grouped = {}
     
     splitSlots.forEach(slot => {
@@ -355,7 +444,7 @@ function BookingContent() {
                   <strong>Time:</strong> {formatTime(selectedSlot.start_time_utc)} - {formatTime(selectedSlot.end_time_utc)} (London time)
                 </div>
                 <div style={{ fontSize: '14px', color: '#666' }}>
-                  Duration: {LESSON_DURATION_MINUTES} minutes
+                  Lesson: {TICKET_LABELS[selectedTicketType] || 'In-Person'} · {lessonMinutes(selectedTicketType)} minutes
                 </div>
               </div>
 
@@ -491,6 +580,42 @@ function BookingContent() {
             <p style={{ color: '#888', fontSize: '14px', margin: '0 0 20px 0' }}>
               Select a date to see available times (London timezone)
             </p>
+
+            {/* レッスン種別トグル: 90分チケット保有者にのみ表示（非保有者のUIは従来と同一） */}
+            {(() => {
+              const options = getLessonOptionsForTeacher(selectedTeacher)
+              const has90 = options.some((o) => o.ticketType === 'in_person_90')
+              if (!has90 || options.length < 2) return null
+              return (
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                  {options.map((opt) => {
+                    const isSelected = selectedTicketType === opt.ticketType
+                    return (
+                      <button
+                        key={opt.ticketType}
+                        onClick={() => {
+                          setSelectedTicketType(opt.ticketType)
+                          setSelectedDate(null)
+                        }}
+                        style={{
+                          padding: '10px 18px',
+                          borderRadius: '10px',
+                          border: isSelected ? '2px solid #6366f1' : '2px solid #e1e5e9',
+                          background: isSelected ? '#6366f1' : 'white',
+                          color: isSelected ? 'white' : '#333',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {opt.label} · {opt.minutes} min
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
 
             <div style={{
               display: 'flex',

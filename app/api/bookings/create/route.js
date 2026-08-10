@@ -148,6 +148,7 @@ const TICKET_TO_LESSON_TYPE = {
   online: 'online',
   inperson_trial: 'inperson_trial',
   in_person: 'in_person',
+  in_person_90: 'in_person_90',
   premium: 'premium',
   online_trial_pair: 'online_trial',
   online_pair: 'online',
@@ -156,6 +157,14 @@ const TICKET_TO_LESSON_TYPE = {
 }
 
 const PAIR_TICKET_TYPES = ['online_trial_pair', 'online_pair', 'inperson_trial_pair', 'in_person_pair']
+
+// レッスンの実尺（分）。end_time は必ずサーバ側で start + 実尺 に確定させる（クライアント値は信用しない）。
+// in_person_90 = 85分（占有90分・実尺85分）。それ以外は標準55分。
+const LESSON_DURATION_MINUTES = { in_person_90: 85 }
+const DEFAULT_LESSON_MINUTES = 55
+const lessonMinutes = (lessonType) => LESSON_DURATION_MINUTES[lessonType] ?? DEFAULT_LESSON_MINUTES
+// スロット占有・重複判定に使うバッファ（分）
+const LESSON_BUFFER_MINUTES = 5
 
 export async function POST(request) {
   try {
@@ -187,6 +196,34 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Slot not found' }, { status: 404 })
     }
 
+    // lesson_type と end_time をサーバ側で確定（クライアント送信の endTime は使わない）。
+    // in_person_90 は start + 85分。占有(85+5=90分)で重複判定する。
+    const lessonType = TICKET_TO_LESSON_TYPE[ticketType] || ticketType
+    const startMs = new Date(startTime).getTime()
+    const bufferMs = LESSON_BUFFER_MINUTES * 60 * 1000
+    const actualEndMs = startMs + lessonMinutes(lessonType) * 60 * 1000
+    const enforcedEndTime = new Date(actualEndMs).toISOString()
+    const candFootStart = startMs
+    const candFootEnd = actualEndMs + bufferMs
+
+    // 同一講師の既存予約（キャンセル以外）とフットプリントが重なる場合は拒否（多重予約・レース防止）
+    const { data: conflictCandidates } = await supabase
+      .from('bookings')
+      .select('start_time, end_time, status')
+      .eq('teacher_id', slotData.teacher_id)
+      .neq('status', 'cancelled')
+      .gte('end_time', new Date(startMs - 3 * 60 * 60 * 1000).toISOString())
+
+    const hasConflict = (conflictCandidates || []).some((b) => {
+      const bStart = new Date(b.start_time).getTime()
+      const bEnd = new Date(b.end_time).getTime() + bufferMs
+      return candFootStart < bEnd && candFootEnd > bStart
+    })
+
+    if (hasConflict) {
+      return NextResponse.json({ error: 'This time slot is no longer available' }, { status: 409 })
+    }
+
     const { data: teacherData } = await supabase
       .from('teachers')
       .select('*, zoom_link, google_refresh_token')
@@ -205,10 +242,10 @@ export async function POST(request) {
         student_id: studentUserId,
         teacher_id: slotData.teacher_id,
         slot_id: slotId,
-        lesson_type: TICKET_TO_LESSON_TYPE[ticketType] || ticketType,
+        lesson_type: lessonType,
         party_size: PAIR_TICKET_TYPES.includes(ticketType) ? 2 : (ticket.party_size || 1),
         start_time: startTime,
-        end_time: endTime,
+        end_time: enforcedEndTime,
         status: 'confirmed',
         zoom_link: teacherData?.zoom_link || null
       })
