@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { Resend } from 'resend'
+import { getFreeBusyInfo } from '../../../../lib/googleCalendar'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -229,6 +230,70 @@ export async function POST(request) {
       .select('*, zoom_link, google_refresh_token')
       .eq('id', slotData.teacher_id)
       .single()
+
+    // 予約確定の直前に、講師のGoogleカレンダーをライブで再検証する。
+    // teacher_availability(スナップショット)や同期の成否に依存せず、予約レンジが
+    // 講師の予定(busy)と重なる場合に弾く。全レッスン共通の保険。
+    // 方針: フェイルオープン。Google API/トークンが一時的に失敗しても予約は止めない(ログのみ)。
+    // 未連携講師(refresh_tokenなし)はスキップして従来通り。
+    if (teacherData?.google_refresh_token) {
+      try {
+        // 占有フットプリント [start, actualEnd+buffer) の範囲で busy を取得
+        const fb = await getFreeBusyInfo(
+          teacherData.google_calendar_id || 'primary',
+          new Date(candFootStart).toISOString(),
+          new Date(candFootEnd).toISOString(),
+          teacherData.google_access_token,
+          teacherData.google_refresh_token
+        )
+
+        // レッスン占有 [start, actualEnd+buffer) と busy [busyStart, busyEnd+buffer) の
+        // レンジ重なりで判定（既存の bookings 重複ガードと同じフットプリント方式）
+        const busyConflict = (fb.busy || []).some((b) => {
+          const bStart = new Date(b.start).getTime()
+          const bEnd = new Date(b.end).getTime() + bufferMs
+          return candFootStart < bEnd && candFootEnd > bStart
+        })
+
+        if (busyConflict) {
+          return NextResponse.json(
+            { error: 'この時間は講師の予定と重なるため予約できません。別の時間をお選びください。' },
+            { status: 409 }
+          )
+        }
+
+        // googleapis が自動リフレッシュした新トークンを永続化（既存 calendar/sync と同じ・best-effort）
+        if (fb.refreshedTokens && fb.refreshedTokens.access_token) {
+          try {
+            await supabase
+              .from('teachers')
+              .update({
+                google_access_token: fb.refreshedTokens.access_token,
+                google_token_expires_at: fb.refreshedTokens.expiry_date
+                  ? new Date(fb.refreshedTokens.expiry_date).toISOString()
+                  : null
+              })
+              .eq('id', slotData.teacher_id)
+          } catch (persistError) {
+            console.error('Free/busy recheck: failed to persist refreshed tokens:', persistError?.message)
+          }
+        }
+      } catch (fbError) {
+        // フェイルオープン: 予約は止めない。invalid_grant はトークン失効としてログ＋null化（再接続導線）。
+        const msg = fbError?.message || ''
+        console.error('Free/busy recheck failed (booking allowed to proceed):', msg)
+        if (msg.includes('invalid_grant') || fbError?.code === 401) {
+          try {
+            await supabase
+              .from('teachers')
+              .update({ google_access_token: null, google_refresh_token: null })
+              .eq('id', slotData.teacher_id)
+          } catch (clearError) {
+            console.error('Free/busy recheck: failed to clear invalid tokens:', clearError?.message)
+          }
+        }
+      }
+    }
 
     const { data: studentProfile } = await supabase
       .from('profiles')
