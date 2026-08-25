@@ -119,7 +119,7 @@ function BookingContent() {
     // まず全講師を取得
     const { data } = await supabase
       .from('profiles')
-      .select('user_id, email, full_name, display_name, bio, lesson_types, location')
+      .select('user_id, email, full_name, display_name, bio, lesson_types, location, sort_order')
       .eq('role', 'teacher')
       .order('display_name')
 
@@ -160,10 +160,13 @@ function BookingContent() {
       if (l === 'online') return 2
       return 3
     }
+    // 同じロケーション内は sort_order 昇順（未設定は末尾）、同順位は display_name 順
+    const orderRank = (v) => (v === null || v === undefined ? Number.MAX_SAFE_INTEGER : v)
     filteredData = [...filteredData].sort((a, b) => {
       const rankDiff = locationRank(a.location) - locationRank(b.location)
       if (rankDiff !== 0) return rankDiff
-      // 同じロケーション内は display_name 順
+      const orderDiff = orderRank(a.sort_order) - orderRank(b.sort_order)
+      if (orderDiff !== 0) return orderDiff
       return (a.display_name || '').localeCompare(b.display_name || '')
     })
 
