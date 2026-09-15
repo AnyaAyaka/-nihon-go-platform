@@ -17,7 +17,7 @@ export default function SubscriptionPage() {
 
   // Premium: Ayaka のオンライン単発のみ。講師 lesson_types に 'premium' を持つ講師だけが予約対象
   const premiumPlans = [
-    { id: 'premium_single', name: 'Premium Session with Ayaka', price: 40, tickets: 1, description: 'Online one-to-one with Ayaka (founder) - pay as you go - 55 min', priceId: 'PREMIUM_PRICE_ID' }
+    { id: 'premium_single', name: 'Premium Session with Ayaka', price: 40, tickets: 1, description: 'Online one-to-one with Ayaka (founder) - pay as you go - 55 min', priceId: 'price_1UG25BD1Jzw9CFosBTowJkZL' }
   ]
 
   const onlinePlans = [
