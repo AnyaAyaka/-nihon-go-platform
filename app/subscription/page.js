@@ -15,6 +15,11 @@ export default function SubscriptionPage() {
   const [inPersonLearners, setInPersonLearners] = useState(1)
   const router = useRouter()
 
+  // Premium: Ayaka のオンライン単発のみ。講師 lesson_types に 'premium' を持つ講師だけが予約対象
+  const premiumPlans = [
+    { id: 'premium_single', name: 'Premium Session with Ayaka', price: 40, tickets: 1, description: 'Online one-to-one with Ayaka (founder) - pay as you go - 55 min', priceId: 'price_1UG25BD1Jzw9CFosBTowJkZL' }
+  ]
+
   const onlinePlans = [
     { id: 'trial', name: 'Online Trial', price: 23, tickets: 1, description: 'First-time students only - 55 min', priceId: 'price_1SKoIUD1Jzw9CFosLC6YJDbE' },
     { id: 'online_single', name: 'Online Single', price: 35, tickets: 1, description: 'Pay as you go - 55 min', priceId: 'price_1THK0jD1Jzw9CFosdvfDwLmB' },
@@ -290,6 +295,25 @@ export default function SubscriptionPage() {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
             {(onlineLearners === 2 ? onlinePairPlans : onlinePlans).map((plan) => (
+              <PlanCard key={plan.id} plan={plan} />
+            ))}
+          </div>
+        </div>
+
+        {/* Premium Session */}
+        <div style={{
+          background: 'white',
+          borderRadius: '20px',
+          padding: '30px',
+          marginBottom: '30px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ margin: '0 0 10px 0', color: '#1e293b', fontSize: '24px', fontWeight: '600' }}>Premium Session (Online)</h2>
+          <p style={{ margin: '0 0 25px 0', color: '#666', fontSize: '14px' }}>
+            A one-to-one online session with Ayaka, founder of Nihon GO! World. Single sessions only, 55 minutes.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+            {premiumPlans.map((plan) => (
               <PlanCard key={plan.id} plan={plan} />
             ))}
           </div>

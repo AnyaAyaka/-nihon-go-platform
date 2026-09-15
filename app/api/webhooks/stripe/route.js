@@ -26,6 +26,7 @@ const PRICE_TO_TICKET_TYPE = {
   'price_1THK10D1Jzw9CFosCXP59bx0': { type: 'in_person', tickets: 1, name: 'In-Person Single', price: '£50' },
   'price_1SKoNHD1Jzw9CFos5bXzv5br': { type: 'in_person', tickets: 4, name: 'In-Person 4-Pack', price: '£180' },
   'price_1SKoNlD1Jzw9CFosNNFJmjI4': { type: 'premium', tickets: 4, name: 'Premium 4 Tickets (Legacy)', price: '£140' },
+  'price_1UG25BD1Jzw9CFosBTowJkZL': { type: 'premium', tickets: 1, name: 'Premium Session with Ayaka (Online)', price: '£40' },
 
   // --- Pair lessons (2 learners in one session) ---
   'price_1TzfwUD1Jzw9CFosbMzoijj6': { type: 'online_trial_pair', tickets: 1, partySize: 2, name: 'Online Trial (2 learners)', price: '£32' },

@@ -27,7 +27,7 @@ const TICKET_LABELS = {
   'inperson_trial': 'In-Person Trial',
   'in_person': 'In-Person',
   'in_person_90': 'In-Person (90 min)',
-  'premium': 'Premium',
+  'premium': 'Premium (Online)',
   'online_trial_pair': 'Online Trial (2 learners)',
   'online_pair': 'Online (2 learners)',
   'inperson_trial_pair': 'In-Person Trial (2 learners)',
@@ -541,7 +541,7 @@ function BookingContent() {
                       {teacher.bio}
                     </p>
                     <div style={{ fontSize: '12px', marginBottom: '5px', color: '#888' }}>
-                      Lesson types: {teacher.lesson_types ? teacher.lesson_types.join(', ') : 'None'}
+                      Lesson types: {teacher.lesson_types ? teacher.lesson_types.map(t => TICKET_LABELS[t] || t).join(', ') : 'None'}
                     </div>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: canBook ? '#10b981' : '#ef4444' }}>
                       {canBook ? 'Available' : 'No compatible tickets'}
