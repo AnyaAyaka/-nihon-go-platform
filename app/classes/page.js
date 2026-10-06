@@ -38,12 +38,9 @@ export default function ClassesPage() {
 
   async function createOrg(e) {
     e.preventDefault(); setError('')
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: org, error: e1 } = await supabase
-      .from('organizations').insert({ name: newOrg, billing_email: user.email }).select().single()
+    // 組織とオーナーはまとめて作る（直接insertは許可されていない）
+    const { error: e1 } = await supabase.rpc('create_organization', { p_name: newOrg, p_kind: 'school' })
     if (e1) { setError(e1.message); return }
-    const { error: e2 } = await supabase.from('org_members').insert({ org_id: org.id, user_id: user.id, role: 'owner' })
-    if (e2) { setError(e2.message); return }
     setNewOrg(''); load()
   }
 
@@ -74,7 +71,7 @@ export default function ClassesPage() {
         {orgs.length === 0 && (
           <form className="ng-panel" onSubmit={createOrg}>
             <h2>Set up your school</h2>
-            <p className="hint">Fourteen days free, up to 30 learners, no card. Use the name your learners would recognise.</p>
+            <p className="hint">1週間無料、生徒30人まで、カード登録なし。生徒が見て分かる名前にしてください。</p>
             <div className="ng-field">
               <input className="ng-input" value={newOrg} onChange={e => setNewOrg(e.target.value)}
                 placeholder="School or company name" required />
