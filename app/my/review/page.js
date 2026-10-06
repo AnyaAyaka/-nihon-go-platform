@@ -84,12 +84,12 @@ export default function ReviewPage() {
 
   function next() { setPicked(null); setAt(i => i + 1) }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
 
   if (!cards.length) return (
     <div className="ng"><div className="ng-wrap ng-app" style={{ maxWidth: 680 }}>
       <div className="ng-bar">
-        <h1 className="ng-title">復習<span>Review</span></h1>
+        <h1 className="ng-title">復習<span>復習</span></h1>
         <button className="ng-btn ghost" onClick={() => router.push('/my')}>今日やること</button>
       </div>
       <div className="ng-panel">

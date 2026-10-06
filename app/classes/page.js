@@ -53,16 +53,16 @@ export default function ClassesPage() {
     setNewClass(c => ({ ...c, name: '' })); load()
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
 
   return (
     <div className="ng">
       <div className="ng-wrap ng-app">
         <div className="ng-bar">
-          <h1 className="ng-title">Classes</h1>
+          <h1 className="ng-title">クラス</h1>
           <div className="ng-cta">
-            <a className="ng-btn ghost" href="/for-schools">Licence &amp; price</a>
-            <a className="ng-btn ghost" href="/dashboard">Dashboard</a>
+            <a className="ng-btn ghost" href="/for-schools">ライセンスと料金</a>
+            <a className="ng-btn ghost" href="/dashboard">ダッシュボード</a>
           </div>
         </div>
 
@@ -70,12 +70,12 @@ export default function ClassesPage() {
 
         {orgs.length === 0 && (
           <form className="ng-panel" onSubmit={createOrg}>
-            <h2>Set up your school</h2>
+            <h2>学校を登録する</h2>
             <p className="hint">1週間無料、生徒30人まで、カード登録なし。生徒が見て分かる名前にしてください。</p>
             <div className="ng-field">
               <input className="ng-input" value={newOrg} onChange={e => setNewOrg(e.target.value)}
-                placeholder="School or company name" required />
-              <button className="ng-btn" type="submit">Create</button>
+                placeholder="学校名・会社名" required />
+              <button className="ng-btn" type="submit">登録する</button>
             </div>
           </form>
         )}
@@ -86,14 +86,14 @@ export default function ClassesPage() {
               <h2 style={{ margin: 0 }}>{o.name}</h2>
               <span className="ng-tag">
                 {o.status === 'trial'
-                  ? `Trial until ${new Date(o.trial_ends_at).toLocaleDateString('en-GB')}`
-                  : o.status === 'active' ? 'Licence active' : o.status}
-                {` · ${o.seats} seats`}
+                  ? `お試し ${new Date(o.trial_ends_at).toLocaleDateString('ja-JP')} まで`
+                  : o.status === 'active' ? 'ライセンス有効' : o.status}
+                {` · $生徒{o.seats}人まで`}
               </span>
             </div>
             {o.status === 'trial' && (
               <p className="hint" style={{ margin: '10px 0 0' }}>
-                <a href="/for-schools">Choose a licence</a> before the trial ends and nothing stops working.
+                <a href="/for-schools">ライセンスを選ぶ</a> を、お試しが終わる前に。そのまま使い続けられます。
               </p>
             )}
           </div>
@@ -101,8 +101,8 @@ export default function ClassesPage() {
 
         {orgs.length > 0 && (
           <form className="ng-panel" onSubmit={createClass}>
-            <h2>New class</h2>
-            <p className="hint">One class per group you teach. You can set different work for each.</p>
+            <h2>クラスを作る</h2>
+            <p className="hint">教えているグループごとに1つ。クラスごとに別の課題を出せます。</p>
             <div className="ng-field">
               <input className="ng-input" value={newClass.name} placeholder="N3 Tuesday evening" required
                 onChange={e => setNewClass(c => ({ ...c, name: e.target.value }))} />
@@ -116,7 +116,7 @@ export default function ClassesPage() {
                   {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               )}
-              <button className="ng-btn" type="submit">Create class</button>
+              <button className="ng-btn" type="submit">作る</button>
             </div>
           </form>
         )}

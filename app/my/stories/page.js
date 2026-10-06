@@ -36,7 +36,7 @@ export default function ChooseStoryPage() {
     setLoading(false)
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
 
   const q = qtext.trim().toLowerCase()
   const list = all

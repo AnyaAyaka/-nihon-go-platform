@@ -87,10 +87,10 @@ export default function StoryTestPage() {
     setSaved(true)
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
   if (!questions.length) return (
     <div className="ng"><div className="ng-wrap ng-app">
-      <p className="ng-empty">There is no mini test for {id} yet.</p>
+      <p className="ng-empty">この物語の力だめしは、まだありません。</p>
     </div></div>
   )
 
@@ -103,9 +103,9 @@ export default function StoryTestPage() {
             {story && (
               <a className="ng-btn ghost"
                 href={`https://nihongo-world.com/materials/stories/${story.lv}/${story.slug}/`}
-                target="_blank" rel="noopener">Read the story</a>
+                target="_blank" rel="noopener">物語を読む</a>
             )}
-            <button className="ng-btn ghost" onClick={() => router.push('/my')}>My work</button>
+            <button className="ng-btn ghost" onClick={() => router.push('/my')}>今日やること</button>
           </div>
         </div>
 

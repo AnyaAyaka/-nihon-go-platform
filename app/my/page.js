@@ -71,19 +71,19 @@ export default function MyWorkPage() {
     load()
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
 
   return (
     <div className="ng">
       <div className="ng-wrap ng-app">
         <div className="ng-bar">
-          <h1 className="ng-title">今日やること<span>Your work</span></h1>
+          <h1 className="ng-title">今日やること<span>あなたの学習</span></h1>
           <div className="ng-cta">
             <button className="ng-btn" onClick={() => router.push('/my/stories')}>物語をえらぶ</button>
             <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>
               復習{due > 0 ? ` ${due}` : ''}
             </button>
-            <a className="ng-btn ghost" href="/dashboard">Dashboard</a>
+            <a className="ng-btn ghost" href="/dashboard">ダッシュボード</a>
           </div>
         </div>
 
@@ -146,13 +146,13 @@ export default function MyWorkPage() {
                       : r.kind === 'mock' ? `　模試　${(mocks[r.ref_id]?.questions) || ''}問`
                       : '　読む'}
                     {r.className ? `　${r.className}` : ''}
-                    {r.due_on ? `　due ${r.due_on}` : ''}
+                    {r.due_on ? `　${r.due_on}まで` : ''}
                   </p>
                 </div>
                 <div className="ng-cta">
                   {r.done && (
                     <span className="ng-ok">
-                      {r.done.max_score ? `${r.done.score} / ${r.done.max_score}` : 'done'}
+                      {r.done.max_score ? `${r.done.score} / ${r.done.max_score}` : '済み'}
                     </span>
                   )}
                   {r.kind === 'mock' ? (
@@ -169,9 +169,9 @@ export default function MyWorkPage() {
                     </button>
                   ) : (
                     <>
-                      <a className="ng-btn" href={href} target="_blank" rel="noopener">Read</a>
+                      <a className="ng-btn" href={href} target="_blank" rel="noopener">読む</a>
                       {!r.done && (
-                        <button className="ng-btn ghost" onClick={() => markRead(r.ref_id)}>Mark as read</button>
+                        <button className="ng-btn ghost" onClick={() => markRead(r.ref_id)}>読んだ</button>
                       )}
                     </>
                   )}

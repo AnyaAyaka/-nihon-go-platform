@@ -186,7 +186,7 @@ export default function ClassDetailPage() {
 
   const active = students.filter(s => s.status !== 'removed')
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
 
   return (
     <div className="ng">
@@ -195,7 +195,7 @@ export default function ClassDetailPage() {
           <h1 className="ng-title">
             {klass?.name}<span>{(klass?.level || '').toUpperCase()}</span>
           </h1>
-          <a className="ng-btn ghost" href="/classes">All classes</a>
+          <a className="ng-btn ghost" href="/classes">クラス一覧</a>
         </div>
 
         {error && <div className="ng-msg ng-err">{error}</div>}
@@ -272,12 +272,12 @@ export default function ClassDetailPage() {
         </form>
 
         <form className="ng-panel" onSubmit={addAssignment}>
-          <h2>Set work</h2>
-          <p className="hint">Pick a story, then whether they read it or take the 8-question mini test.</p>
+          <h2>課題を出す</h2>
+          <p className="hint">物語を選んで、読ませるか、力だめし8問を解かせるかを決めます。締切も付けられます。</p>
           <div className="ng-field">
             <select className="ng-select" style={{ minWidth: 320 }} value={pick.ref_id}
               onChange={e => setPick(p => ({ ...p, ref_id: e.target.value }))}>
-              <option value="">Choose a story…</option>
+              <option value="">物語を選ぶ…</option>
               {catalog.map(s => (
                 <option key={s.id} value={s.id}>
                   {s.lv.toUpperCase()} {String(s.no).padStart(2, '0')} · {s.title} — {s.en}
@@ -285,12 +285,12 @@ export default function ClassDetailPage() {
               ))}
             </select>
             <select className="ng-select" value={pick.kind} onChange={e => setPick(p => ({ ...p, kind: e.target.value }))}>
-              <option value="story">Read the story</option>
-              <option value="story_test">Mini test (8 questions)</option>
+              <option value="story">物語を読む</option>
+              <option value="story_test">力だめし 8問</option>
             </select>
             <input className="ng-input" type="date" value={pick.due_on}
               onChange={e => setPick(p => ({ ...p, due_on: e.target.value }))} />
-            <button className="ng-btn" type="submit">Assign</button>
+            <button className="ng-btn" type="submit">出す</button>
           </div>
           {pick.ref_id && (
             <p className="hint" style={{ margin: '12px 0 0' }}>
@@ -392,19 +392,19 @@ export default function ClassDetailPage() {
         })()}
 
         <div className="ng-panel ng-scroll">
-          <h2>Progress</h2>
+          <h2>進み具合</h2>
           {active.length === 0 || assignments.length === 0 ? (
-            <p className="hint">Add learners and set work, and the results land here as they finish.</p>
+            <p className="hint">生徒を登録して課題を出すと、解き終わった順にここに点数が入ります。</p>
           ) : (
             <table className="ng-table">
               <thead>
                 <tr>
-                  <th>Learner</th>
+                  <th>生徒</th>
                   {assignments.map(a => (
                     <th key={a.id} title={a.title}>
                       {a.ref_id}<br />
                       <span style={{ fontWeight: 400 }}>
-                        {a.kind === 'story' ? 'read' : a.kind === 'grammar_drill' ? 'drill' : a.kind === 'mock' ? 'mock' : 'test'}
+                        {a.kind === 'story' ? '読む' : a.kind === 'grammar_drill' ? '文法練習' : a.kind === 'mock' ? '模試' : '力だめし'}
                       </span>
                       {a.due_on && <><br /><span style={{ fontWeight: 400 }}>{a.due_on}まで</span></>}
                     </th>
@@ -423,7 +423,7 @@ export default function ClassDetailPage() {
                       const p = s.user_id && done(s.user_id, a.kind, a.ref_id)
                       return (
                         <td key={a.id} className={p ? 'ng-ok' : ''}>
-                          {p ? (p.max_score ? `${p.score} / ${p.max_score}` : 'done') : '—'}
+                          {p ? (p.max_score ? `${p.score} / ${p.max_score}` : '済み') : '—'}
                         </td>
                       )
                     })}
