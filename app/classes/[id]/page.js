@@ -30,6 +30,7 @@ export default function ClassDetailPage() {
   const [editing, setEditing] = useState(null)   // 名前を直している行
   const [pick, setPick] = useState({ ref_id: '', kind: 'story', due_on: '' })
   const [error, setError] = useState('')
+  const [note, setNote] = useState('')
 
   useEffect(() => { load() }, [id])
 
@@ -61,14 +62,30 @@ export default function ClassDetailPage() {
     setLoading(false)
   }
 
+  // 生徒へメールを出す。失敗しても作業自体は止めない。
+  async function notify(payload) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return null
+      const r = await fetch('/api/notify/class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ classId: id, ...payload })
+      })
+      return r.ok ? await r.json() : null
+    } catch (e) { return null }
+  }
+
   async function addOne(e) {
     e.preventDefault()
-    setError('')
+    setError(''); setNote('')
     const email = one.email.trim().toLowerCase()
     if (!email.includes('@')) { setError('メールアドレスを入れてください。'); return }
     const { error: e1 } = await supabase.from('class_students')
       .upsert([{ class_id: id, email, name: one.name.trim() || null, status: 'invited' }], { onConflict: 'class_id,email' })
     if (e1) { setError(e1.message); return }
+    const res = await notify({ what: 'invite', emails: [email] })
+    setNote(res?.sent ? `${email} に案内のメールを送りました。` : `${email} を登録しました。`)
     setOne({ name: '', email: '' })
     load()
   }
@@ -92,6 +109,8 @@ export default function ClassDetailPage() {
     if (!rows.length) return
     const { error: e1 } = await supabase.from('class_students').upsert(rows, { onConflict: 'class_id,email' })
     if (e1) { setError(e1.message); return }
+    const res = await notify({ what: 'invite', emails: rows.map(r => r.email) })
+    setNote(res?.sent ? `${res.sent}人に案内のメールを送りました。` : `${rows.length}人を登録しました。`)
     setEmails('')
     setBulkOpen(false)
     load()
@@ -102,14 +121,16 @@ export default function ClassDetailPage() {
     setError('')
     if (!pick.ref_id) return
     const story = catalog.find(s => s.id === pick.ref_id)
-    const { error: e1 } = await supabase.from('assignments').insert({
+    const { data: ins, error: e1 } = await supabase.from('assignments').insert({
       class_id: id,
       kind: pick.kind,
       ref_id: pick.ref_id,
       title: story ? `${story.title}（${story.en}）` : pick.ref_id,
       due_on: pick.due_on || null
-    })
+    }).select().single()
     if (e1) { setError(e1.message); return }
+    const res = await notify({ what: 'assignment', assignmentId: ins?.id })
+    setNote(res?.sent ? `課題を出して、${res.sent}人に知らせました。` : '課題を出しました。')
     setPick(p => ({ ...p, ref_id: '' }))
     load()
   }
@@ -166,21 +187,25 @@ export default function ClassDetailPage() {
     setError('')
     if (!mockPick.ref_id) return
     const m = mocks.find(x => x.id === mockPick.ref_id)
-    const { error: e1 } = await supabase.from('assignments').insert({
+    const { data: ins, error: e1 } = await supabase.from('assignments').insert({
       class_id: id, kind: 'mock', ref_id: mockPick.ref_id,
       title: m ? m.title : mockPick.ref_id, due_on: mockPick.due_on || null
-    })
+    }).select().single()
     if (e1) { setError(e1.message); return }
+    const res = await notify({ what: 'assignment', assignmentId: ins?.id })
+    setNote(res?.sent ? `模試を出して、${res.sent}人に知らせました。` : '模試を出しました。')
     setMockPick({ ref_id: '', due_on: '' })
     load()
   }
 
   async function assignDrill(gid, label) {
     setError('')
-    const { error: e1 } = await supabase.from('assignments').insert({
+    const { data: ins, error: e1 } = await supabase.from('assignments').insert({
       class_id: id, kind: 'grammar_drill', ref_id: gid, title: label, due_on: null
-    })
+    }).select().single()
     if (e1) { setError(e1.message); return }
+    const res = await notify({ what: 'assignment', assignmentId: ins?.id })
+    setNote(res?.sent ? `「${label}」の練習を出して、${res.sent}人に知らせました。` : '練習を出しました。')
     load()
   }
 
@@ -199,6 +224,7 @@ export default function ClassDetailPage() {
         </div>
 
         {error && <div className="ng-msg ng-err">{error}</div>}
+        {note && <div className="ng-msg">{note}</div>}
 
         <form className="ng-panel" onSubmit={addOne}>
           <h2>生徒</h2>
