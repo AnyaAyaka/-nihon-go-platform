@@ -1,10 +1,12 @@
 'use client'
 import AccessCheck from '../../../AccessCheck'
+import MockRecorder from '../../../MockRecorder'
 
 export default function Page() {
   return (
     <>
       <AccessCheck level="N3" mockNum={5} />
+      <MockRecorder level="N3" mockNum={5} section="grammar" />
       <div dangerouslySetInnerHTML={{ __html: `<!DOCTYPE html>
 
 <html lang="ja">
