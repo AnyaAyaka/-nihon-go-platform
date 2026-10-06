@@ -20,6 +20,7 @@ export default function ClassDetailPage() {
   const [emails, setEmails] = useState('')
   const [one, setOne] = useState({ name: '', email: '' })
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [editing, setEditing] = useState(null)   // 名前を直している行
   const [pick, setPick] = useState({ ref_id: '', kind: 'story', due_on: '' })
   const [error, setError] = useState('')
 
@@ -107,8 +108,10 @@ export default function ClassDetailPage() {
   }
 
   async function renameStudent(sid, name) {
-    await supabase.from('class_students').update({ name: name.trim() || null }).eq('id', sid)
-    setStudents(list => list.map(x => (x.id === sid ? { ...x, name: name.trim() || null } : x)))
+    const v = (name || '').trim() || null
+    await supabase.from('class_students').update({ name: v }).eq('id', sid)
+    setStudents(list => list.map(x => (x.id === sid ? { ...x, name: v } : x)))
+    setEditing(null)
   }
 
   async function removeStudent(sid) {
@@ -234,13 +237,24 @@ export default function ClassDetailPage() {
               {active.map(s => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                   padding: '8px 0', borderTop: '1px solid var(--line)' }}>
-                  <input className="ng-input" style={{ minWidth: 150, maxWidth: 180, padding: '6px 10px' }}
-                    defaultValue={s.name || ''} placeholder="名前"
-                    onBlur={e => { if ((e.target.value || '') !== (s.name || '')) renameStudent(s.id, e.target.value) }} />
+                  {editing === s.id ? (
+                    <input className="ng-input" autoFocus
+                      style={{ minWidth: 150, maxWidth: 180, padding: '6px 10px' }}
+                      defaultValue={s.name || ''} placeholder="名前"
+                      onBlur={e => renameStudent(s.id, e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); renameStudent(s.id, e.target.value) } }} />
+                  ) : (
+                    <span style={{ minWidth: 150, fontFamily: 'var(--read)', fontSize: '1.05rem' }}>
+                      {s.name || <span className="ng-tag">名前なし</span>}
+                    </span>
+                  )}
                   <span style={{ minWidth: 220 }}>{s.email}</span>
                   <span className="ng-tag">
                     {s.status === 'invited' ? '招待済み・サインイン待ち' : '参加済み'}
                   </span>
+                  {editing !== s.id && (
+                    <button type="button" className="ng-mini" onClick={() => setEditing(s.id)}>名前を直す</button>
+                  )}
                   <button type="button" className="ng-mini" onClick={() => removeStudent(s.id)}>解除</button>
                 </div>
               ))}
