@@ -141,9 +141,9 @@ export default function ClassDetailPage() {
     load()
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
-
   const active = students.filter(s => s.status !== 'removed')
+
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
 
   return (
     <div className="ng">
@@ -167,6 +167,24 @@ export default function ClassDetailPage() {
               onChange={e => setEmails(e.target.value)} placeholder="anna@example.com, ben@example.com" />
             <button className="ng-btn" type="submit">Add</button>
           </div>
+
+          {active.length === 0 ? (
+            <p className="hint" style={{ margin: '14px 0 0' }}>まだ誰も入っていません。</p>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <p className="ng-tag" style={{ marginBottom: 6 }}>{active.length}人</p>
+              {active.map(s => (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                  padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+                  <span style={{ minWidth: 220 }}>{s.email}</span>
+                  <span className="ng-tag">
+                    {s.status === 'invited' ? '招待ずみ・まだサインインしていません' : '参加ずみ'}
+                  </span>
+                  <button type="button" className="ng-mini" onClick={() => removeStudent(s.id)}>はずす</button>
+                </div>
+              ))}
+            </div>
+          )}
         </form>
 
         <form className="ng-panel" onSubmit={addAssignment}>
