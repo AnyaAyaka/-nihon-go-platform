@@ -18,6 +18,8 @@ export default function ClassDetailPage() {
   const [mockPick, setMockPick] = useState({ ref_id: '', due_on: '' })
   const [progress, setProgress] = useState([])
   const [emails, setEmails] = useState('')
+  const [one, setOne] = useState({ name: '', email: '' })
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [pick, setPick] = useState({ ref_id: '', kind: 'story', due_on: '' })
   const [error, setError] = useState('')
 
@@ -51,8 +53,20 @@ export default function ClassDetailPage() {
     setLoading(false)
   }
 
-  async function addStudents(e) {
+  async function addOne(e) {
     e.preventDefault()
+    setError('')
+    const email = one.email.trim().toLowerCase()
+    if (!email.includes('@')) { setError('メールアドレスを入れてください。'); return }
+    const { error: e1 } = await supabase.from('class_students')
+      .upsert([{ class_id: id, email, name: one.name.trim() || null }], { onConflict: 'class_id,email' })
+    if (e1) { setError(e1.message); return }
+    setOne({ name: '', email: '' })
+    load()
+  }
+
+  async function addStudents(e) {
+    if (e && e.preventDefault) e.preventDefault()
     setError('')
     // 1行に1人。「田中太郎 tanaka@example.com」でも「tanaka@example.com」でも可。
     // 1行にアドレスが複数あるときは、名前なしでまとめて追加する。
@@ -71,6 +85,7 @@ export default function ClassDetailPage() {
     const { error: e1 } = await supabase.from('class_students').upsert(rows, { onConflict: 'class_id,email' })
     if (e1) { setError(e1.message); return }
     setEmails('')
+    setBulkOpen(false)
     load()
   }
 
@@ -170,22 +185,42 @@ export default function ClassDetailPage() {
 
         {error && <div className="ng-msg ng-err">{error}</div>}
 
-        <form className="ng-panel" onSubmit={addStudents}>
-          <h2>Learners</h2>
+        <form className="ng-panel" onSubmit={addOne}>
+          <h2>生徒</h2>
           <p className="hint">
-            1行に1人。「田中太郎 tanaka@example.com」のように名前を前に書けます。アドレスだけでもかまいません。
-            生徒は、そのアドレスでサインインするとクラスに入ります。名前はあとからでも直せます。
+            名前とメールアドレスを入れて追加します。生徒はそのアドレスでサインインするとクラスに入ります。
           </p>
           <div className="ng-field">
-            <textarea className="ng-textarea" value={emails}
-              onChange={e => setEmails(e.target.value)} placeholder={"田中太郎 tanaka@example.com\nanna@example.com"} />
-            <button className="ng-btn" type="submit">Add</button>
+            <input className="ng-input" style={{ minWidth: 180 }} value={one.name}
+              onChange={e => setOne(o => ({ ...o, name: e.target.value }))} placeholder="名前（例：田中太郎）" />
+            <input className="ng-input" style={{ minWidth: 260 }} type="email" value={one.email}
+              onChange={e => setOne(o => ({ ...o, email: e.target.value }))} placeholder="メールアドレス" required />
+            <button className="ng-btn" type="submit">追加</button>
           </div>
 
+          <button type="button" className="ng-mini" style={{ marginTop: 10 }}
+            onClick={() => setBulkOpen(v => !v)}>
+            {bulkOpen ? '− まとめて追加をとじる' : '＋ まとめて追加する'}
+          </button>
+
+          {bulkOpen && (
+            <div style={{ marginTop: 10 }}>
+              <p className="hint" style={{ margin: '0 0 8px' }}>
+                1行に1人。「田中太郎 tanaka@example.com」のように名前を前に書けます。アドレスだけでもかまいません。
+              </p>
+              <div className="ng-field">
+                <textarea className="ng-textarea" value={emails}
+                  onChange={e => setEmails(e.target.value)}
+                  placeholder={"田中太郎 tanaka@example.com\nanna@example.com"} />
+                <button className="ng-btn ghost" type="button" onClick={addStudents}>まとめて追加</button>
+              </div>
+            </div>
+          )}
+
           {active.length === 0 ? (
-            <p className="hint" style={{ margin: '14px 0 0' }}>まだ誰も入っていません。</p>
+            <p className="hint" style={{ margin: '16px 0 0' }}>まだ誰も入っていません。</p>
           ) : (
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 18 }}>
               <p className="ng-tag" style={{ marginBottom: 6 }}>{active.length}人</p>
               {active.map(s => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
