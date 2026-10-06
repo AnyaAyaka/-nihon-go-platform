@@ -6,6 +6,13 @@ import { useRouter, useParams } from 'next/navigation'
 import '../../ng-ui.css'
 
 
+const KIND_JA = {
+  story: '読む',
+  story_test: '力だめし 8問',
+  grammar_drill: '文法の練習 5問',
+  mock: '模試'
+}
+
 export default function ClassDetailPage() {
   const router = useRouter()
   const { id } = useParams()
@@ -123,6 +130,8 @@ export default function ClassDetailPage() {
   }
 
   async function removeAssignment(aid) {
+    const a = assignments.find(x => x.id === aid)
+    if (!window.confirm(`「${(a && a.title) || 'この課題'}」を取り消しますか。\nすでに解いた人の成績は残ります。`)) return
     await supabase.from('assignments').delete().eq('id', aid)
     load()
   }
@@ -302,6 +311,36 @@ export default function ClassDetailPage() {
           </div>
         </form>
 
+        <div className="ng-panel">
+          <h2>出した課題</h2>
+          {assignments.length === 0 ? (
+            <p className="hint" style={{ margin: 0 }}>まだ何も出していません。上の2つから出せます。</p>
+          ) : (
+            <>
+              <p className="hint" style={{ margin: '0 0 10px' }}>新しいものが上。提出の数は、解き終わった人数です。</p>
+              {assignments.map(a => {
+                const n = progress.filter(p => p.kind === a.kind && p.ref_id === a.ref_id).length
+                return (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                    padding: '10px 0', borderTop: '1px solid var(--line)' }}>
+                    <span className="ng-tag" style={{ minWidth: 110 }}>{KIND_JA[a.kind] || a.kind}</span>
+                    <strong style={{ fontFamily: 'var(--read)', fontSize: '1.05rem', flex: 1, minWidth: 220 }}>
+                      {a.title || a.ref_id}
+                    </strong>
+                    <span className="ng-tag" style={{ minWidth: 110 }}>
+                      {a.due_on ? `締切 ${a.due_on}` : '締切なし'}
+                    </span>
+                    <span className={n ? 'ng-ok' : 'ng-tag'} style={{ minWidth: 80 }}>
+                      {n} / {active.length} 提出
+                    </span>
+                    <button className="ng-mini" onClick={() => removeAssignment(a.id)}>取り消す</button>
+                  </div>
+                )
+              })}
+            </>
+          )}
+        </div>
+
         {(() => {
           const m = misses()
           if (!m.grammar.length && !m.vocab.length) return null
@@ -357,9 +396,7 @@ export default function ClassDetailPage() {
                       <span style={{ fontWeight: 400 }}>
                         {a.kind === 'story' ? 'read' : a.kind === 'grammar_drill' ? 'drill' : a.kind === 'mock' ? 'mock' : 'test'}
                       </span>
-                      {a.due_on && <><br /><span style={{ fontWeight: 400 }}>due {a.due_on}</span></>}
-                      <br />
-                      <button className="ng-mini" onClick={() => removeAssignment(a.id)}>remove</button>
+                      {a.due_on && <><br /><span style={{ fontWeight: 400 }}>{a.due_on}まで</span></>}
                     </th>
                   ))}
                 </tr>
