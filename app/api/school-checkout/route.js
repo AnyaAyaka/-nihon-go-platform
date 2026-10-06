@@ -10,7 +10,7 @@ const supabase = createClient(
 
 // Annual licences for schools, universities and companies.
 // Prices are created inline so nothing has to be set up in the Stripe dashboard first.
-export const PLANS = {
+const PLANS = {
   school:     { name: 'School licence',      seats: 30,  amount: 39000 },
   school_plus:{ name: 'School licence plus', seats: 60,  amount: 69000 },
   institution:{ name: 'Institution licence', seats: 100, amount: 120000 }
