@@ -42,10 +42,15 @@ export async function GET(req) {
     const story = STORIES[ref] || null
     const questions = TESTS[ref] || []
     if (!story && !questions.length) return send({ error: 'not found' }, 404)
-    const titles = {}
-    for (const q of questions) if (q.g && GRAMMAR[q.g]) titles[q.g] = GRAMMAR[q.g].title
-    for (const g of (story?.grammar || [])) if (GRAMMAR[g]) titles[g] = GRAMMAR[g].title
-    return send({ kind: 'story_test', ref, story, questions, titles }, 200)
+    // この話に出てくる文法は、説明と例文まで返す（右のパネル用）
+    const grammar = {}
+    const add = id => {
+      const g = GRAMMAR[id]
+      if (g && !grammar[id]) grammar[id] = { title: g.title, lv: g.lv, en: g.en, pattern: g.pattern, note: g.note, ex: g.ex }
+    }
+    for (const q of questions) if (q.g) add(q.g)
+    for (const g of (story?.grammar || [])) add(g)
+    return send({ kind: 'story_test', ref, story, questions, grammar }, 200)
   }
 
   if (kind === 'grammar_drill') {
