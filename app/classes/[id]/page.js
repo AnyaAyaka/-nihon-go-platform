@@ -54,11 +54,19 @@ export default function ClassDetailPage() {
   async function addStudents(e) {
     e.preventDefault()
     setError('')
-    const rows = emails
-      .split(/[\s,;]+/)
-      .map(x => x.trim().toLowerCase())
-      .filter(x => x.includes('@'))
-      .map(email => ({ class_id: id, email }))
+    // 1行に1人。「田中太郎 tanaka@example.com」でも「tanaka@example.com」でも可。
+    // 1行にアドレスが複数あるときは、名前なしでまとめて追加する。
+    const rows = []
+    for (const line of emails.split(/\r?\n/)) {
+      const found = line.match(/[^\s,;<>]+@[^\s,;<>]+/g) || []
+      if (!found.length) continue
+      if (found.length === 1) {
+        let rest = line.replace(found[0], '').replace(/[,;<>]/g, ' ').trim()
+        rows.push({ class_id: id, email: found[0].toLowerCase(), name: rest || null })
+      } else {
+        for (const f of found) rows.push({ class_id: id, email: f.toLowerCase(), name: null })
+      }
+    }
     if (!rows.length) return
     const { error: e1 } = await supabase.from('class_students').upsert(rows, { onConflict: 'class_id,email' })
     if (e1) { setError(e1.message); return }
@@ -83,6 +91,11 @@ export default function ClassDetailPage() {
     load()
   }
 
+  async function renameStudent(sid, name) {
+    await supabase.from('class_students').update({ name: name.trim() || null }).eq('id', sid)
+    setStudents(list => list.map(x => (x.id === sid ? { ...x, name: name.trim() || null } : x)))
+  }
+
   async function removeStudent(sid) {
     await supabase.from('class_students').update({ status: 'removed' }).eq('id', sid)
     load()
@@ -100,7 +113,7 @@ export default function ClassDetailPage() {
   // 落としたところを、文法と語彙でまとめる
   function misses() {
     const mail = {}
-    students.forEach(s => { if (s.user_id) mail[s.user_id] = s.email })
+    students.forEach(s => { if (s.user_id) mail[s.user_id] = s.name || s.email })
     const g = {}, w = {}
     for (const p of progress) {
       for (const it of (p.detail?.wrong || [])) {
@@ -160,11 +173,12 @@ export default function ClassDetailPage() {
         <form className="ng-panel" onSubmit={addStudents}>
           <h2>Learners</h2>
           <p className="hint">
-            Paste email addresses, separated by commas or new lines. Each learner joins by signing in with that address.
+            1行に1人。「田中太郎 tanaka@example.com」のように名前を前に書けます。アドレスだけでもかまいません。
+            生徒は、そのアドレスでサインインするとクラスに入ります。名前はあとからでも直せます。
           </p>
           <div className="ng-field">
             <textarea className="ng-textarea" value={emails}
-              onChange={e => setEmails(e.target.value)} placeholder="anna@example.com, ben@example.com" />
+              onChange={e => setEmails(e.target.value)} placeholder={"田中太郎 tanaka@example.com\nanna@example.com"} />
             <button className="ng-btn" type="submit">Add</button>
           </div>
 
@@ -176,11 +190,14 @@ export default function ClassDetailPage() {
               {active.map(s => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                   padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+                  <input className="ng-input" style={{ minWidth: 150, maxWidth: 180, padding: '6px 10px' }}
+                    defaultValue={s.name || ''} placeholder="名前"
+                    onBlur={e => { if ((e.target.value || '') !== (s.name || '')) renameStudent(s.id, e.target.value) }} />
                   <span style={{ minWidth: 220 }}>{s.email}</span>
                   <span className="ng-tag">
-                    {s.status === 'invited' ? '招待ずみ・まだサインインしていません' : '参加ずみ'}
+                    {s.status === 'invited' ? '招待済み・サインイン待ち' : '参加済み'}
                   </span>
-                  <button type="button" className="ng-mini" onClick={() => removeStudent(s.id)}>はずす</button>
+                  <button type="button" className="ng-mini" onClick={() => removeStudent(s.id)}>解除</button>
                 </div>
               ))}
             </div>
@@ -293,9 +310,9 @@ export default function ClassDetailPage() {
                 {active.map(s => (
                   <tr key={s.id}>
                     <td>
-                      {s.email}
-                      {s.status === 'invited' && <span className="ng-tag"> not joined yet</span>}
-                      <button className="ng-mini" onClick={() => removeStudent(s.id)}>remove</button>
+                      {s.name || s.email}
+                      {s.name && <span className="ng-tag"><br />{s.email}</span>}
+                      {s.status === 'invited' && <span className="ng-tag">　サインイン待ち</span>}
                     </td>
                     {assignments.map(a => {
                       const p = s.user_id && done(s.user_id, a.kind, a.ref_id)
