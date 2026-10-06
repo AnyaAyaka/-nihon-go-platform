@@ -15,6 +15,7 @@ export default function MyWorkPage() {
   const [catalog, setCatalog] = useState({})
   const [due, setDue] = useState(0)
   const [mocks, setMocks] = useState({})
+  const [history, setHistory] = useState([])
 
   useEffect(() => { load() }, [])
 
@@ -43,6 +44,8 @@ export default function MyWorkPage() {
     }
     const { data: prog } = await supabase.from('progress').select('*').eq('user_id', user.id)
     setDue(await dueCount(user.id))
+    setHistory((prog || []).slice().sort((a, b) =>
+      String(b.completed_at || '').localeCompare(String(a.completed_at || ''))))
 
     const cat = {}
     for (const s of await (await fetch('/data/stories-catalog.json')).json()) cat[s.id] = s
@@ -76,7 +79,8 @@ export default function MyWorkPage() {
         <div className="ng-bar">
           <h1 className="ng-title">今日やること<span>Your work</span></h1>
           <div className="ng-cta">
-            <button className="ng-btn" onClick={() => router.push('/my/review')}>
+            <button className="ng-btn" onClick={() => router.push('/my/stories')}>物語をえらぶ</button>
+            <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>
               復習{due > 0 ? ` ${due}` : ''}
             </button>
             <a className="ng-btn ghost" href="/dashboard">Dashboard</a>
@@ -90,9 +94,40 @@ export default function MyWorkPage() {
         )}
 
         {rows.length === 0 && (
-          <p className="ng-empty">
-            Nothing set yet. When your teacher assigns a story, it appears here with the audio and the questions.
-          </p>
+          <div className="ng-panel">
+            <h2>課題はまだありません</h2>
+            <p className="hint" style={{ margin: '6px 0 14px' }}>
+              先生が課題を出すと、ここに並びます。それを待たずに、自分で物語を選んで進められます。
+              力だめしで間違えたところは、復習に自動でたまります。
+            </p>
+            <div className="ng-cta">
+              <button className="ng-btn" onClick={() => router.push('/my/stories')}>物語をえらぶ</button>
+              {due > 0 && (
+                <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>復習 {due}</button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="ng-panel">
+            <h2>解いた記録</h2>
+            <p className="hint" style={{ margin: '4px 0 12px' }}>新しい順。{history.length}件。</p>
+            {history.slice(0, 12).map(h => (
+              <div key={h.kind + h.ref_id} style={{ display: 'flex', justifyContent: 'space-between',
+                gap: 12, flexWrap: 'wrap', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+                <span style={{ fontFamily: 'var(--read)', minWidth: 200 }}>
+                  {catalog[h.ref_id]?.title || mocks[h.ref_id]?.title || h.ref_id}
+                </span>
+                <span className="ng-tag">
+                  {h.kind === 'story_test' ? '力だめし' : h.kind === 'grammar_drill' ? '文法の練習' : h.kind === 'mock' ? '模試' : '読んだ'}
+                </span>
+                <span className={h.max_score && h.score / h.max_score >= .8 ? 'ng-ok' : ''}>
+                  {h.max_score ? `${h.score} / ${h.max_score}` : '済み'}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
 
         {rows.map(r => {
