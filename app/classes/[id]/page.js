@@ -59,7 +59,7 @@ export default function ClassDetailPage() {
     const email = one.email.trim().toLowerCase()
     if (!email.includes('@')) { setError('メールアドレスを入れてください。'); return }
     const { error: e1 } = await supabase.from('class_students')
-      .upsert([{ class_id: id, email, name: one.name.trim() || null }], { onConflict: 'class_id,email' })
+      .upsert([{ class_id: id, email, name: one.name.trim() || null, status: 'invited' }], { onConflict: 'class_id,email' })
     if (e1) { setError(e1.message); return }
     setOne({ name: '', email: '' })
     load()
@@ -76,9 +76,9 @@ export default function ClassDetailPage() {
       if (!found.length) continue
       if (found.length === 1) {
         let rest = line.replace(found[0], '').replace(/[,;<>]/g, ' ').trim()
-        rows.push({ class_id: id, email: found[0].toLowerCase(), name: rest || null })
+        rows.push({ class_id: id, email: found[0].toLowerCase(), name: rest || null, status: 'invited' })
       } else {
-        for (const f of found) rows.push({ class_id: id, email: f.toLowerCase(), name: null })
+        for (const f of found) rows.push({ class_id: id, email: f.toLowerCase(), name: null, status: 'invited' })
       }
     }
     if (!rows.length) return
@@ -112,6 +112,9 @@ export default function ClassDetailPage() {
   }
 
   async function removeStudent(sid) {
+    const s = students.find(x => x.id === sid)
+    const who = (s && (s.name || s.email)) || 'この生徒'
+    if (!window.confirm(`${who} をこのクラスから外しますか。\n成績は残ります。同じアドレスで登録し直せば戻せます。`)) return
     await supabase.from('class_students').update({ status: 'removed' }).eq('id', sid)
     load()
   }
@@ -222,6 +225,12 @@ export default function ClassDetailPage() {
           ) : (
             <div style={{ marginTop: 18 }}>
               <p className="ng-tag" style={{ marginBottom: 6 }}>{active.length}人</p>
+              {students.filter(s => s.status === 'removed').length > 0 && (
+                <p className="ng-tag" style={{ margin: '0 0 8px' }}>
+                  外した人：{students.filter(s => s.status === 'removed').map(s => s.name || s.email).join('、')}
+                  （同じアドレスで登録し直すと戻ります）
+                </p>
+              )}
               {active.map(s => (
                 <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
                   padding: '8px 0', borderTop: '1px solid var(--line)' }}>
