@@ -292,6 +292,12 @@ export default function ClassDetailPage() {
               onChange={e => setPick(p => ({ ...p, due_on: e.target.value }))} />
             <button className="ng-btn" type="submit">Assign</button>
           </div>
+          {pick.ref_id && (
+            <p className="hint" style={{ margin: '12px 0 0' }}>
+              出す前に中身を見る：
+              <a href={`/teach/story_test/${encodeURIComponent(pick.ref_id)}`} target="_blank" rel="noopener">力だめし8問（答えつき）</a>
+            </p>
+          )}
         </form>
 
         <form className="ng-panel" onSubmit={addMock}>
@@ -325,7 +331,9 @@ export default function ClassDetailPage() {
                     padding: '10px 0', borderTop: '1px solid var(--line)' }}>
                     <span className="ng-tag" style={{ minWidth: 110 }}>{KIND_JA[a.kind] || a.kind}</span>
                     <strong style={{ fontFamily: 'var(--read)', fontSize: '1.05rem', flex: 1, minWidth: 220 }}>
-                      {a.title || a.ref_id}
+                      {(a.kind === 'story_test' || a.kind === 'grammar_drill')
+                        ? <a href={`/teach/${a.kind}/${encodeURIComponent(a.ref_id)}`}>{a.title || a.ref_id}</a>
+                        : (a.title || a.ref_id)}
                     </strong>
                     <span className="ng-tag" style={{ minWidth: 110 }}>
                       {a.due_on ? `締切 ${a.due_on}` : '締切なし'}
@@ -357,6 +365,8 @@ export default function ClassDetailPage() {
                       <strong style={{ fontFamily: 'var(--read)', minWidth: 180 }}>{x.label}</strong>
                       <span className="ng-miss">{x.who.size}人</span>
                       <span className="ng-tag" style={{ flex: 1, minWidth: 160 }}>{[...x.who].join('、')}</span>
+                      <a className="ng-mini" href={`/teach/grammar_drill/${encodeURIComponent(x.id)}`}
+                        target="_blank" rel="noopener">問題を見る</a>
                       <button className="ng-btn ghost" style={{ padding: '6px 12px', fontSize: '.85rem' }}
                         onClick={() => assignDrill(x.id, x.label)}>この文法の練習を出す</button>
                     </div>
