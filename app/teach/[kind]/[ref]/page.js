@@ -23,6 +23,7 @@ export default function TeachPage() {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [hide, setHide] = useState(false)   // 生徒に見せるとき用に答えを隠す
+  const [showEn, setShowEn] = useState(true)
 
   useEffect(() => { load() }, [kind, ref])
 
@@ -52,7 +53,7 @@ export default function TeachPage() {
   )
 
   const qs = data.questions || []
-  const title = kind === 'grammar_drill' ? data.title : ref
+  const title = kind === 'grammar_drill' ? data.title : (data.story?.title || ref)
 
   return (
     <div className="ng">
@@ -66,6 +67,11 @@ export default function TeachPage() {
             <button className="ng-btn ghost" onClick={() => setHide(v => !v)}>
               {hide ? '答えを出す' : '答えを隠す'}
             </button>
+            {data?.story && (
+              <button className="ng-btn ghost" onClick={() => setShowEn(v => !v)}>
+                {showEn ? '英訳を隠す' : '英訳を出す'}
+              </button>
+            )}
             <button className="ng-btn ghost" onClick={() => window.print()}>印刷</button>
             <button className="ng-btn ghost" onClick={() => router.push('/classes')}>クラスへ</button>
           </div>
@@ -80,6 +86,74 @@ export default function TeachPage() {
                 {R(e[0])}<span className="ng-tag" style={{ display: 'block', fontFamily: 'var(--ui)' }}>{e[1]}</span>
               </p>
             ))}
+          </div>
+        )}
+
+        {data.story && (
+          <div className="ng-panel">
+            <p className="ng-tag" style={{ marginBottom: 10 }}>
+              本文　{(data.story.lv || '').toUpperCase()}
+              {data.story.theme ? `　${data.story.theme}` : ''}
+              {(data.story.grammar || []).length
+                ? `　文法：${data.story.grammar.map(g => data.titles?.[g] || g).join('、')}`
+                : ''}
+            </p>
+            {data.story.paras.map((para, pi) => (
+              <div key={pi} style={{ marginBottom: 18 }}>
+                {para.map((sen, si) => (
+                  <p key={si} style={{ fontFamily: 'var(--read)', fontSize: '1.12rem', lineHeight: 2.3, margin: '0 0 2px' }}>
+                    {sen.s.map((seg, gi) =>
+                      typeof seg === 'string'
+                        ? <span key={gi}>{R(seg)}</span>
+                        : <span key={gi} style={{
+                            textDecoration: 'underline', textDecorationStyle: 'wavy',
+                            textDecorationColor: 'var(--shu)', textUnderlineOffset: '.3em'
+                          }} title={data.titles?.[seg.g] || seg.g}>{R(seg.t)}</span>
+                    )}
+                    {showEn && (
+                      <span className="ng-tag" style={{ display: 'block', fontFamily: 'var(--ui)', lineHeight: 1.7 }}>
+                        {sen.en}
+                      </span>
+                    )}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data.story && (data.story.quiz || []).length > 0 && (
+          <div className="ng-panel">
+            <h2>読んだあとに　{data.story.quiz.length}問</h2>
+            {data.story.quiz.map((q, i) => (
+              <div key={i} style={{ marginTop: 14 }}>
+                <p style={{ fontFamily: 'var(--read)', fontSize: '1.1rem', lineHeight: 2, margin: '0 0 8px' }}>
+                  {i + 1}. {R(q.q)}
+                </p>
+                {q.o.map((o, m) => {
+                  const right = !hide && m === q.a
+                  return (
+                    <div key={m} style={{
+                      fontFamily: 'var(--read)', padding: '8px 12px', marginBottom: 5, background: '#fff',
+                      border: '1px solid ' + (right ? '#2E6B4F' : 'var(--line)')
+                    }}>
+                      <span className="ng-tag" style={{ marginRight: 10 }}>{m + 1}</span>{R(o)}
+                      {right && <strong style={{ color: '#2E6B4F', marginLeft: 10 }}>答え</strong>}
+                    </div>
+                  )
+                })}
+                {!hide && q.why && (
+                  <p style={{ fontSize: '.92rem', lineHeight: 1.9, background: 'var(--paper)',
+                    border: '1px solid var(--line)', padding: '10px 12px', margin: '6px 0 0' }}>{R(q.why)}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {qs.length > 0 && (
+          <div className="ng-panel" style={{ background: 'transparent', border: 0, padding: '8px 0 0' }}>
+            <h2 style={{ margin: 0 }}>力だめし　{qs.length}問</h2>
           </div>
         )}
 

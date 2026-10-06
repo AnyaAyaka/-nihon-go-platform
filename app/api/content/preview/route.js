@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import TESTS from '../../../../content/story-tests.json'
 import GRAMMAR from '../../../../content/grammar-drills.json'
+import STORIES from '../../../../content/stories.json'
 
 // 先生用。答えと解説つきで問題をまるごと返す。
 // 組織に属している人（＝先生）だけ。生徒には返さない。
@@ -37,12 +38,14 @@ export async function GET(req) {
   const ref = url.searchParams.get('ref')
   if (!kind || !ref) return send({ error: 'missing kind or ref' }, 400)
 
-  if (kind === 'story_test') {
-    const questions = TESTS[ref]
-    if (!questions) return send({ error: 'not found' }, 404)
+  if (kind === 'story_test' || kind === 'story') {
+    const story = STORIES[ref] || null
+    const questions = TESTS[ref] || []
+    if (!story && !questions.length) return send({ error: 'not found' }, 404)
     const titles = {}
     for (const q of questions) if (q.g && GRAMMAR[q.g]) titles[q.g] = GRAMMAR[q.g].title
-    return send({ kind, ref, questions, titles }, 200)
+    for (const g of (story?.grammar || [])) if (GRAMMAR[g]) titles[g] = GRAMMAR[g].title
+    return send({ kind: 'story_test', ref, story, questions, titles }, 200)
   }
 
   if (kind === 'grammar_drill') {
