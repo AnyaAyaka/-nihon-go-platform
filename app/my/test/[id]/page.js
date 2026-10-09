@@ -6,7 +6,7 @@ import { addToReview } from '../../../../lib/review'
 import { useRouter, useParams } from 'next/navigation'
 import '../../../ng-ui.css'
 
-const LABEL = { kanji: '漢字の読み', hyoki: '表記', bunmyaku: '語彙（文脈）', youhou: '語彙（用法）', grammar: '文法' }
+const LABEL = { kanji: 'Kanji reading', hyoki: 'Spelling', bunmyaku: 'Vocabulary in context', youhou: 'Vocabulary in use', grammar: 'Grammar' }
 
 function ruby(s) {
   // {漢字|かんじ} -> <ruby>
@@ -87,10 +87,10 @@ export default function StoryTestPage() {
     setSaved(true)
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
   if (!questions.length) return (
     <div className="ng"><div className="ng-wrap ng-app">
-      <p className="ng-empty">この物語の力だめしは、まだありません。</p>
+      <p className="ng-empty">There is no mini test for this story yet.</p>
     </div></div>
   )
 
@@ -98,14 +98,14 @@ export default function StoryTestPage() {
     <div className="ng">
       <div className="ng-wrap ng-app" style={{ maxWidth: 740 }}>
         <div className="ng-bar">
-          <h1 className="ng-title">力だめし<span>{story?.title}</span></h1>
+          <h1 className="ng-title">Mini test<span>{story?.title}</span></h1>
           <div className="ng-cta">
             {story && (
               <a className="ng-btn ghost"
                 href={`https://nihongo-world.com/materials/stories/${story.lv}/${story.slug}/`}
-                target="_blank" rel="noopener">物語を読む</a>
+                target="_blank" rel="noopener">Read the story</a>
             )}
-            <button className="ng-btn ghost" onClick={() => router.push('/my')}>今日やること</button>
+            <button className="ng-btn ghost" onClick={() => router.push('/my')}>Today</button>
           </div>
         </div>
 
@@ -145,10 +145,10 @@ export default function StoryTestPage() {
         <div className="ng-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ fontFamily: 'var(--read)', fontSize: '1.3rem' }}>
             {score} / {questions.length}
-            <span className="ng-tag" style={{ marginLeft: 10 }}>{answered}問 解答ずみ</span>
+            <span className="ng-tag" style={{ marginLeft: 10 }}>{answered} answered</span>
           </div>
           <button className="ng-btn" onClick={finish} disabled={answered < questions.length || saved}>
-            {saved ? '先生に記録しました' : '記録する'}
+            {saved ? 'Sent to your teacher' : 'Save'}
           </button>
         </div>
       </div>

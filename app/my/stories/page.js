@@ -36,7 +36,7 @@ export default function ChooseStoryPage() {
     setLoading(false)
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
 
   const q = qtext.trim().toLowerCase()
   const list = all
@@ -49,10 +49,10 @@ export default function ChooseStoryPage() {
     <div className="ng">
       <div className="ng-wrap ng-app">
         <div className="ng-bar">
-          <h1 className="ng-title">物語をえらぶ<span>199本　N5からN1</span></h1>
+          <h1 className="ng-title">Pick a story<span>199 stories, N5 to N1</span></h1>
           <div className="ng-cta">
-            <button className="ng-btn ghost" onClick={() => router.push('/my')}>今日やること</button>
-            <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>復習</button>
+            <button className="ng-btn ghost" onClick={() => router.push('/my')}>Today</button>
+            <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>Review</button>
           </div>
         </div>
 
@@ -65,10 +65,10 @@ export default function ChooseStoryPage() {
               ))}
             </div>
             <input className="ng-input" value={qtext} onChange={e => setQtext(e.target.value)}
-              placeholder="題名・テーマで探す" style={{ minWidth: 220 }} />
+              placeholder="Search by title or theme" style={{ minWidth: 220 }} />
           </div>
           <p className="hint" style={{ margin: '12px 0 0' }}>
-            {lv.toUpperCase()}　{all.filter(s => s.lv === lv).length}本中、力だめしを解いたのは {doneCount}本
+            {lv.toUpperCase()} · mini test done on {doneCount} of {all.filter(s => s.lv === lv).length}
           </p>
         </div>
 
@@ -87,13 +87,13 @@ export default function ChooseStoryPage() {
                   <p className="hint" style={{ margin: '4px 0 0' }}>
                     {s.en}
                     {s.theme ? `　${s.theme}` : ''}
-                    {s.chars ? `　${s.chars}字` : ''}
+                    {s.chars ? ` · ${s.chars} characters` : ''}
                   </p>
                 </div>
                 <div className="ng-cta">
-                  <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`} target="_blank" rel="noopener">読む</a>
+                  <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`} target="_blank" rel="noopener">Read</a>
                   <button className="ng-btn" onClick={() => router.push(`/my/test/${s.id}`)}>
-                    {d?.max != null ? 'もう一度' : '力だめし 8問'}
+                    {d?.max != null ? 'Again' : 'Mini test, 8 questions'}
                   </button>
                 </div>
               </div>
@@ -101,7 +101,7 @@ export default function ChooseStoryPage() {
           )
         })}
 
-        {list.length === 0 && <p className="ng-empty">見つかりませんでした。</p>}
+        {list.length === 0 && <p className="ng-empty">Nothing found.</p>}
       </div>
     </div>
   )

@@ -48,20 +48,20 @@ export default function InstallApp() {
       boxShadow: "0 10px 30px rgba(20,30,40,.18)", fontSize: 14, lineHeight: 1.7,
       fontFamily: '"Zen Kaku Gothic New","Hiragino Sans",system-ui,sans-serif', color: "#1C2226",
     }}>
-      <button onClick={close} aria-label="閉じる" style={{
+      <button onClick={close} aria-label="Close" style={{
         float: "right", border: 0, background: "none", cursor: "pointer", color: "#5D6970", fontSize: 12,
-      }}>閉じる</button>
-      <strong style={{ display: "block", marginBottom: 4 }}>ホーム画面に追加できます</strong>
+      }}>Close</button>
+      <strong style={{ display: "block", marginBottom: 4 }}>Add this to your home screen</strong>
       {ios ? (
-        <span>下の共有ボタンから「ホーム画面に追加」を選ぶと、アプリのように開けます。</span>
+        <span>Tap the share button below, then “Add to Home Screen”, and it opens like an app.</span>
       ) : (
         <>
-          <span>アイコンから、すぐ開けるようになります。</span>
+          <span>Open it straight from the icon, like any other app.</span>
           <div style={{ marginTop: 10 }}>
             <button onClick={async () => { await prompt?.prompt?.(); close(); }} style={{
               font: "inherit", fontWeight: 700, background: "#1C2226", color: "#fff",
               border: 0, borderRadius: 6, padding: "9px 18px", cursor: "pointer",
-            }}>追加する</button>
+            }}>Add</button>
           </div>
         </>
       )}

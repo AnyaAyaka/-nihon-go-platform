@@ -71,11 +71,11 @@ export default function GrammarDrillPage() {
     setSaved(true)
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
   if (!data) return (
     <div className="ng"><div className="ng-wrap ng-app">
-      <p className="ng-empty">この文法の練習はまだありません。</p>
-      <button className="ng-btn ghost" onClick={() => router.push('/my')}>もどる</button>
+      <p className="ng-empty">There is no practice for this grammar point yet.</p>
+      <button className="ng-btn ghost" onClick={() => router.push('/my')}>Back</button>
     </div></div>
   )
 
@@ -89,13 +89,13 @@ export default function GrammarDrillPage() {
     <div className="ng">
       <div className="ng-wrap ng-app" style={{ maxWidth: 740 }}>
         <div className="ng-bar">
-          <h1 className="ng-title">{R(data.title)}<span>{(data.lv || '').toUpperCase()}　練習{qs.length}問</span></h1>
-          <button className="ng-btn ghost" onClick={() => router.push('/my')}>今日やること</button>
+          <h1 className="ng-title">{R(data.title)}<span>{(data.lv || '').toUpperCase()}　Practice, {qs.length} questions</span></h1>
+          <button className="ng-btn ghost" onClick={() => router.push('/my')}>Today</button>
         </div>
 
         <div className="ng-panel">
           <button className="ng-mini" style={{ fontSize: '.9rem', padding: 0 }} onClick={() => setOpenNote(v => !v)}>
-            {openNote ? '− 説明をとじる' : '＋ 文法の説明を見る'}
+            {openNote ? '− Hide the explanation' : '+ Show the explanation'}
           </button>
           {openNote && (
             <div style={{ marginTop: 12 }}>
@@ -128,7 +128,7 @@ export default function GrammarDrillPage() {
               {q.t === 'judge' && [true, false].map(v => (
                 <button key={String(v)} disabled={done} onClick={() => setPicked(p => ({ ...p, [i]: v }))}
                   style={{ ...box(done && v === q.a, done && v === picked[i] && v !== q.a), cursor: done ? 'default' : 'pointer' }}>
-                  {v ? '○　正しい' : '✕　正しくない'}
+                  {v ? '○ Correct' : '✕ Not correct'}
                 </button>
               ))}
 
@@ -153,10 +153,10 @@ export default function GrammarDrillPage() {
                     })}
                   </div>
                   {!done && (order[i] || []).length > 0 && (
-                    <button className="ng-mini" onClick={() => setOrder(o => ({ ...o, [i]: [] }))}>やりなおす</button>
+                    <button className="ng-mini" onClick={() => setOrder(o => ({ ...o, [i]: [] }))}>Start over</button>
                   )}
                   {done && !right && (
-                    <p style={{ fontFamily: 'var(--read)', marginTop: 10 }}>正しい文　{R(q.sent)}</p>
+                    <p style={{ fontFamily: 'var(--read)', marginTop: 10 }}>Correct sentence: {R(q.sent)}</p>
                   )}
                 </>
               )}
@@ -174,10 +174,10 @@ export default function GrammarDrillPage() {
         <div className="ng-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ fontFamily: 'var(--read)', fontSize: '1.3rem' }}>
             {score} / {qs.length}
-            <span className="ng-tag" style={{ marginLeft: 10 }}>{answered}問 解答ずみ</span>
+            <span className="ng-tag" style={{ marginLeft: 10 }}>{answered} answered</span>
           </div>
           <button className="ng-btn" onClick={finish} disabled={answered < qs.length || saved}>
-            {saved ? '記録しました' : '記録する'}
+            {saved ? 'Saved' : 'Save'}
           </button>
         </div>
       </div>

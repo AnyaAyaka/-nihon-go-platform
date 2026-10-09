@@ -84,20 +84,20 @@ export default function ReviewPage() {
 
   function next() { setPicked(null); setAt(i => i + 1) }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
 
   if (!cards.length) return (
     <div className="ng"><div className="ng-wrap ng-app" style={{ maxWidth: 680 }}>
       <div className="ng-bar">
-        <h1 className="ng-title">復習<span>復習</span></h1>
-        <button className="ng-btn ghost" onClick={() => router.push('/my')}>今日やること</button>
+        <h1 className="ng-title">Review<span>nothing due</span></h1>
+        <button className="ng-btn ghost" onClick={() => router.push('/my')}>Today</button>
       </div>
       <div className="ng-panel">
-        <p style={{ margin: 0 }}>いま出すものはありません。</p>
+        <p style={{ margin: 0 }}>Nothing is due right now.</p>
         <p className="hint" style={{ margin: '8px 0 0' }}>
           {later.length
-            ? `${later.length}件が待っています。いちばん早いものは ${later[0].due_on} に出ます。`
-            : '力だめしや文法の練習で間違えたところが、ここに自動でたまります。'}
+            ? `${later.length} waiting. The first one comes back on ${later[0].due_on}.`
+            : 'Anything you get wrong in a mini test or in grammar practice collects here on its own.'}
         </p>
       </div>
     </div></div>
@@ -105,13 +105,13 @@ export default function ReviewPage() {
 
   if (!card) return (
     <div className="ng"><div className="ng-wrap ng-app" style={{ maxWidth: 680 }}>
-      <div className="ng-bar"><h1 className="ng-title">復習<span>おわり</span></h1></div>
+      <div className="ng-bar"><h1 className="ng-title">Review<span>done</span></h1></div>
       <div className="ng-panel">
         <p style={{ fontFamily: 'var(--read)', fontSize: '1.4rem', margin: 0 }}>{tally.ok} / {tally.ok + tally.no}</p>
         <p className="hint" style={{ margin: '8px 0 16px' }}>
-          正解したものは間隔をあけて、また出ます。間違えたものは明日もう一度。
+          What you got right comes back later, with a longer gap each time. What you got wrong comes back tomorrow.
         </p>
-        <button className="ng-btn" onClick={() => router.push('/my')}>今日やること</button>
+        <button className="ng-btn" onClick={() => router.push('/my')}>Today</button>
       </div>
     </div></div>
   )
@@ -123,20 +123,20 @@ export default function ReviewPage() {
     <div className="ng">
       <div className="ng-wrap ng-app" style={{ maxWidth: 680 }}>
         <div className="ng-bar">
-          <h1 className="ng-title">復習<span>{at + 1} / {cards.length}</span></h1>
-          <button className="ng-btn ghost" onClick={() => router.push('/my')}>やめる</button>
+          <h1 className="ng-title">Review<span>{at + 1} / {cards.length}</span></h1>
+          <button className="ng-btn ghost" onClick={() => router.push('/my')}>Stop</button>
         </div>
 
         <div className="ng-panel">
           <div className="ng-tag">
-            {card.kind === 'grammar' ? '文法' : '語彙・漢字'}　{R(card.label)}
+            {card.kind === 'grammar' ? 'Grammar' : 'Vocabulary and kanji'}　{R(card.label)}
             {card.en ? `　${card.en}` : ''}
-            {card.row.wrong_count > 1 ? `　これまで${card.row.wrong_count}回まちがえています` : ''}
+            {card.row.wrong_count > 1 ? ` · wrong ${card.row.wrong_count} times so far` : ''}
           </div>
           <p style={{ fontFamily: 'var(--read)', fontSize: '1.15rem', lineHeight: 2.2, margin: '8px 0 16px' }}>{R(q.q)}</p>
 
           {!opts && (
-            <p className="hint">この問題は復習では出せません。<button className="ng-mini" onClick={next}>次へ</button></p>
+            <p className="hint">This one cannot be shown in review.<button className="ng-mini" onClick={next}>Next</button></p>
           )}
 
           {opts && opts.map((o, m) => {
@@ -153,7 +153,7 @@ export default function ReviewPage() {
                   border: '1px solid ' + (right ? '#2E6B4F' : wrong ? 'var(--shu)' : 'var(--line)')
                 }}>
                 {q.t !== 'judge' && <span className="ng-tag" style={{ marginRight: 10 }}>{m + 1}</span>}
-                {q.t === 'judge' ? (o ? '○　正しい' : '✕　正しくない') : R(o)}
+                {q.t === 'judge' ? (o ? '○ Correct' : '✕ Not correct') : R(o)}
               </button>
             )
           })}
@@ -167,7 +167,7 @@ export default function ReviewPage() {
                 {R(q.why)}
               </p>
               <div style={{ marginTop: 14 }}>
-                <button className="ng-btn" onClick={next}>{at + 1 === cards.length ? '終わる' : '次へ'}</button>
+                <button className="ng-btn" onClick={next}>{at + 1 === cards.length ? 'Finish' : 'Next'}</button>
               </div>
             </>
           )}

@@ -71,39 +71,39 @@ export default function MyWorkPage() {
     load()
   }
 
-  if (loading) return <div className="ng"><div className="ng-wrap ng-app">読み込み中…</div></div>
+  if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
 
   return (
     <div className="ng">
       <div className="ng-wrap ng-app">
         <div className="ng-bar">
-          <h1 className="ng-title">今日やること<span>あなたの学習</span></h1>
+          <h1 className="ng-title">Today<span>Your study</span></h1>
           <div className="ng-cta">
-            <button className="ng-btn" onClick={() => router.push('/my/stories')}>物語をえらぶ</button>
+            <button className="ng-btn" onClick={() => router.push('/my/stories')}>Pick a story</button>
             <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>
-              復習{due > 0 ? ` ${due}` : ''}
+              Review{due > 0 ? ` ${due}` : ''}
             </button>
-            <a className="ng-btn ghost" href="/dashboard">ダッシュボード</a>
+            <a className="ng-btn ghost" href="/dashboard">Dashboard</a>
           </div>
         </div>
 
         {due > 0 && (
           <div className="ng-msg" style={{ marginBottom: 18 }}>
-            まちがえたところが{due}件たまっています。復習は数分で終わります。
+            You have {due} {due === 1 ? 'thing' : 'things'} to review. It takes a few minutes.
           </div>
         )}
 
         {rows.length === 0 && (
           <div className="ng-panel">
-            <h2>課題はまだありません</h2>
+            <h2>Nothing set yet</h2>
             <p className="hint" style={{ margin: '6px 0 14px' }}>
-              先生が課題を出すと、ここに並びます。それを待たずに、自分で物語を選んで進められます。
-              力だめしで間違えたところは、復習に自動でたまります。
+              Work your teacher sets appears here. You do not have to wait for it: pick a story and start.
+              Anything you get wrong in a mini test is added to your review on its own.
             </p>
             <div className="ng-cta">
-              <button className="ng-btn" onClick={() => router.push('/my/stories')}>物語をえらぶ</button>
+              <button className="ng-btn" onClick={() => router.push('/my/stories')}>Pick a story</button>
               {due > 0 && (
-                <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>復習 {due}</button>
+                <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>Review {due}</button>
               )}
             </div>
           </div>
@@ -111,8 +111,8 @@ export default function MyWorkPage() {
 
         {history.length > 0 && (
           <div className="ng-panel">
-            <h2>解いた記録</h2>
-            <p className="hint" style={{ margin: '4px 0 12px' }}>新しい順。{history.length}件。</p>
+            <h2>What you have done</h2>
+            <p className="hint" style={{ margin: '4px 0 12px' }}>Most recent first. {history.length} in total.</p>
             {history.slice(0, 12).map(h => (
               <div key={h.kind + h.ref_id} style={{ display: 'flex', justifyContent: 'space-between',
                 gap: 12, flexWrap: 'wrap', padding: '8px 0', borderTop: '1px solid var(--line)' }}>
@@ -120,10 +120,10 @@ export default function MyWorkPage() {
                   {catalog[h.ref_id]?.title || mocks[h.ref_id]?.title || h.ref_id}
                 </span>
                 <span className="ng-tag">
-                  {h.kind === 'story_test' ? '力だめし' : h.kind === 'grammar_drill' ? '文法の練習' : h.kind === 'mock' ? '模試' : '読んだ'}
+                  {h.kind === 'story_test' ? 'Mini test' : h.kind === 'grammar_drill' ? 'Grammar practice' : h.kind === 'mock' ? 'Mock test' : 'Read'}
                 </span>
                 <span className={h.max_score && h.score / h.max_score >= .8 ? 'ng-ok' : ''}>
-                  {h.max_score ? `${h.score} / ${h.max_score}` : '済み'}
+                  {h.max_score ? `${h.score} / ${h.max_score}` : 'Done'}
                 </span>
               </div>
             ))}
@@ -141,37 +141,37 @@ export default function MyWorkPage() {
                   <h2 style={{ fontFamily: 'var(--read)', fontSize: '1.25rem', margin: 0 }}>{s ? s.title : (mk ? mk.title : (r.title || r.ref_id))}</h2>
                   <p className="hint" style={{ margin: '4px 0 0' }}>
                     {s?.en}
-                    {r.kind === 'story_test' ? '　力だめし8問'
-                      : r.kind === 'grammar_drill' ? '　文法の練習5問'
-                      : r.kind === 'mock' ? `　模試　${(mocks[r.ref_id]?.questions) || ''}問`
-                      : '　読む'}
+                    {r.kind === 'story_test' ? ' · Mini test, 8 questions'
+                      : r.kind === 'grammar_drill' ? ' · Grammar practice, 5 questions'
+                      : r.kind === 'mock' ? ` · Mock test, ${(mocks[r.ref_id]?.questions) || ''} questions`
+                      : ' · Read'}
                     {r.className ? `　${r.className}` : ''}
-                    {r.due_on ? `　${r.due_on}まで` : ''}
+                    {r.due_on ? ` · due ${r.due_on}` : ''}
                   </p>
                 </div>
                 <div className="ng-cta">
                   {r.done && (
                     <span className="ng-ok">
-                      {r.done.max_score ? `${r.done.score} / ${r.done.max_score}` : '済み'}
+                      {r.done.max_score ? `${r.done.score} / ${r.done.max_score}` : 'Done'}
                     </span>
                   )}
                   {r.kind === 'mock' ? (
                     <a className="ng-btn" href={mocks[r.ref_id]?.path || '/jlpt/n3/'}>
-                      {r.done ? 'もう一度' : 'はじめる'}
+                      {r.done ? 'Again' : 'Start'}
                     </a>
                   ) : r.kind === 'story_test' ? (
                     <button className="ng-btn" onClick={() => router.push(`/my/test/${r.ref_id}`)}>
-                      {r.done ? 'もう一度' : 'はじめる'}
+                      {r.done ? 'Again' : 'Start'}
                     </button>
                   ) : r.kind === 'grammar_drill' ? (
                     <button className="ng-btn" onClick={() => router.push(`/my/drill/${r.ref_id}`)}>
-                      {r.done ? 'もう一度' : 'はじめる'}
+                      {r.done ? 'Again' : 'Start'}
                     </button>
                   ) : (
                     <>
-                      <a className="ng-btn" href={href} target="_blank" rel="noopener">読む</a>
+                      <a className="ng-btn" href={href} target="_blank" rel="noopener">Read</a>
                       {!r.done && (
-                        <button className="ng-btn ghost" onClick={() => markRead(r.ref_id)}>読んだ</button>
+                        <button className="ng-btn ghost" onClick={() => markRead(r.ref_id)}>Read</button>
                       )}
                     </>
                   )}
