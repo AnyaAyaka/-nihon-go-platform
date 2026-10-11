@@ -13,7 +13,14 @@ export default function InstallApp() {
     if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+    // ストアのアプリの中では「ホーム画面に追加」の案内は出さない
+    const inStoreApp = (() => {
+      const cap = (window as any).Capacitor;
+      const p = cap && typeof cap.getPlatform === "function" ? cap.getPlatform() : "web";
+      return p === "ios" || p === "android";
+    })();
     const standalone =
+      inStoreApp ||
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as any).standalone === true;
     if (standalone) return;

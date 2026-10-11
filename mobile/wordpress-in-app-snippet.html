@@ -1,0 +1,24 @@
+<!--
+  nihongo-world.com（WordPress）に一回だけ貼る。フッターでも、各ページの最後でもいい。
+  ストアのアプリの中で開いた時だけ、JLPT 模試のサイト価格（£9.99 / £19.99）を隠す。
+  ブラウザで見る人には何も変わらない。
+  「Get Full Access」ボタンはそのままでいい（アプリの中ではアプリ内課金の画面に行く）。
+-->
+<script>
+(function () {
+  var c = window.Capacitor;
+  var p = c && typeof c.getPlatform === 'function' ? c.getPlatform() : 'web';
+  if (p !== 'ios' && p !== 'android') return;
+  document.documentElement.classList.add('in-store-app');
+  function hidePrices() {
+    document.querySelectorAll('.price-block, .price-amount, .price-was').forEach(function (e) {
+      e.style.display = 'none';
+    });
+    document.querySelectorAll('p, li, span, div').forEach(function (e) {
+      if (e.children.length === 0 && /£\s?(9\.99|19\.99)/.test(e.textContent)) e.style.display = 'none';
+    });
+  }
+  if (document.readyState !== 'loading') hidePrices();
+  else document.addEventListener('DOMContentLoaded', hidePrices);
+})();
+</script>

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nihon GO! Offline</title>
+<style>
+:root{--paper:#F2EFE6;--card:#FBFAF6;--ink:#141A1F;--muted:#6B7178;--line:#D8D3C6;--shu:#C5372C;--ao:#2C4A6E}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;line-height:1.8;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px)}
+.wrap{max-width:720px;margin:0 auto}
+h1{font-size:1.4rem;margin:0 0 4px}
+.hint{color:var(--muted);font-size:.9rem;margin:0}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.btn{font:inherit;font-weight:700;background:var(--ink);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;min-height:44px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.tabs .btn{padding:8px 14px}
+.item{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:0 0 10px;font:inherit;color:inherit;cursor:pointer}
+.item b{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:1.1rem;font-weight:600}
+.item span{display:block;color:var(--muted);font-size:.85rem}
+.empty{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px}
+.reader{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+.reader h2{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:1.3rem;margin:0 0 4px}
+.para{margin:0 0 18px}
+.s{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:1.15rem;line-height:2.3;border-radius:4px;cursor:pointer}
+.s.now{background:#F6E3DF}
+.en{display:block;color:var(--muted);font-family:inherit;font-size:.85rem;line-height:1.5;margin:-4px 0 8px}
+.hide-en .en{display:none}
+.hide-rt rt{visibility:hidden}
+.w{border-bottom:1px dotted var(--ao)}
+.pop{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 16px);max-width:520px;margin:0 auto;background:#fff;border:1px solid var(--line);border-top:3px solid var(--ink);border-radius:10px;padding:14px 16px;box-shadow:0 10px 30px rgba(20,30,40,.18)}
+.pop[hidden]{display:none}
+.pop b{font-size:1.2rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div>
+      <h1>オフラインで読む</h1>
+      <p class="hint">You are offline. Your saved stories are here.</p>
+    </div>
+    <button class="btn ghost" id="retry">Try going online</button>
+  </div>
+
+  <div id="lib">
+    <div class="tabs" id="tabs"></div>
+    <div id="list"></div>
+  </div>
+
+  <div id="reader" hidden>
+    <div class="bar">
+      <button class="btn ghost" id="back">← Stories</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost" id="toggle-rt">ふりがな</button>
+        <button class="btn ghost" id="toggle-en">English</button>
+        <button class="btn" id="play-all">全文を聞く</button>
+      </div>
+    </div>
+    <div class="reader" id="text"></div>
+  </div>
+</div>
+
+<div class="pop" id="pop" hidden></div>
+
+<script>
+(function () {
+  var Cap = window.Capacitor || null;
+  var FS = Cap && Cap.Plugins ? Cap.Plugins.Filesystem : null;
+  var DIR = 'DATA';
+  var ONLINE = 'https://app.nihongo-world.com/my';
+  var index = {}, current = null, level = null, audioEl = null, runId = 0;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  // {漢字|かんじ} → ルビ
+  function ruby(s) {
+    return esc(s).replace(/\{([^|{}]+)\|([^{}]+)\}/g, '<ruby>$1<rt>$2</rt></ruby>');
+  }
+
+  $('retry').onclick = function () { location.href = ONLINE; };
+
+  function readText(path) {
+    return FS.readFile({ path: path, directory: DIR, encoding: 'utf8' }).then(function (r) { return r.data; });
+  }
+
+  function loadIndex() {
+    if (!FS) return Promise.resolve({});
+    return readText('offline/index.json').then(function (t) { return JSON.parse(t || '{}'); }).catch(function () { return {}; });
+  }
+
+  function renderLib() {
+    var items = Object.keys(index).map(function (k) { return index[k]; });
+    var levels = ['n5', 'n4', 'n3', 'n2', 'n1'].filter(function (l) { return items.some(function (s) { return s.lv === l; }); });
+    if (!levels.length) {
+      $('tabs').innerHTML = '';
+      $('list').innerHTML = '<div class="empty"><b>Nothing saved yet.</b><p class="hint">When you are back online, open “Pick a story” and tap “Save for offline” on a level.</p></div>';
+      return;
+    }
+    if (!level || levels.indexOf(level) < 0) level = levels[0];
+    $('tabs').innerHTML = levels.map(function (l) {
+      return '<button class="btn ' + (l === level ? '' : 'ghost') + '" data-lv="' + l + '">' + l.toUpperCase() + '</button>';
+    }).join('');
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) {
+      b.onclick = function () { level = b.getAttribute('data-lv'); renderLib(); };
+    });
+    var list = items.filter(function (s) { return s.lv === level; }).sort(function (a, b) { return (a.no || 0) - (b.no || 0); });
+    $('list').innerHTML = list.map(function (s) {
+      return '<button class="item" data-id="' + esc(s.id) + '"><b>' + esc(s.title) + '</b><span>' + esc(s.en || '') + (s.audio ? ' · audio' : '') + '</span></button>';
+    }).join('');
+    Array.prototype.forEach.call($('list').querySelectorAll('.item'), function (b) {
+      b.onclick = function () { openStory(b.getAttribute('data-id')); };
+    });
+  }
+
+  function tokenHtml(tk, si, ti) {
+    if (typeof tk === 'string') return ruby(tk);
+    return '<span class="w" data-s="' + si + '" data-t="' + ti + '">' + ruby(tk[0]) + '</span>';
+  }
+
+  function openStory(id) {
+    stopAll();
+    readText('offline/stories/' + id + '.json').then(function (t) {
+      current = { id: id, meta: index[id], body: JSON.parse(t) };
+      var b = current.body;
+      var html = '<h2>' + esc(current.meta.title) + '</h2><p class="hint" style="margin-bottom:16px">' + esc(current.meta.en || '') + '</p>';
+      (b.paras || [b.sents.map(function (_, i) { return i; })]).forEach(function (p) {
+        html += '<p class="para">';
+        p.forEach(function (i) {
+          var s = b.sents[i];
+          html += '<span class="s" id="s' + i + '" data-i="' + i + '">' + (s.tk || []).map(function (tk, ti) { return tokenHtml(tk, i, ti); }).join('') + '</span>';
+          html += '<span class="en">' + esc(s.en || '') + '</span>';
+        });
+        html += '</p>';
+      });
+      $('text').innerHTML = html;
+      $('lib').hidden = true;
+      $('reader').hidden = false;
+      window.scrollTo(0, 0);
+    }).catch(function () { alert('This story could not be opened.'); });
+  }
+
+  $('text').addEventListener('click', function (e) {
+    var w = e.target.closest('.w');
+    if (w) {
+      var tk = current.body.sents[+w.getAttribute('data-s')].tk[+w.getAttribute('data-t')];
+      $('pop').innerHTML = '<b>' + esc(tk[1] || '') + '</b>　' + esc(tk[6] || '') + (tk[3] ? '　<span class="hint">' + esc(tk[3]) + '</span>' : '') + '<div>' + esc(tk[2] || '') + '</div>';
+      $('pop').hidden = false;
+      e.stopPropagation();
+      return;
+    }
+    var s = e.target.closest('.s');
+    if (s) { stopAll(); playSent(+s.getAttribute('data-i'), null); }
+  });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.w')) $('pop').hidden = true; });
+
+  $('back').onclick = function () { stopAll(); $('reader').hidden = true; $('lib').hidden = false; renderLib(); };
+  $('toggle-rt').onclick = function () { $('text').classList.toggle('hide-rt'); };
+  $('toggle-en').onclick = function () { $('text').classList.toggle('hide-en'); };
+
+  function clearNow() { Array.prototype.forEach.call(document.querySelectorAll('.s.now'), function (e) { e.classList.remove('now'); }); }
+  function stopAll() {
+    runId++;
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    if (audioEl) { try { audioEl.pause(); } catch (e) {} }
+    $('play-all').textContent = '全文を聞く';
+    clearNow();
+  }
+
+  function speak(text, done) {
+    if (!window.speechSynthesis) { done && done(); return; }
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = .9; u.onend = done; u.onerror = done;
+    speechSynthesis.speak(u);
+  }
+
+  function playSent(i, done) {
+    var my = runId, s = current.body.sents[i];
+    clearNow();
+    var el = $('s' + i); if (el) el.classList.add('now');
+    var finish = function () { if (my !== runId) return; clearNow(); done && done(); };
+    var nn = String(i + 1); if (nn.length < 2) nn = '0' + nn;
+    FS.getUri({ path: 'offline/audio/' + current.id + '/' + nn + '.mp3', directory: DIR }).then(function (r) {
+      return FS.stat({ path: 'offline/audio/' + current.id + '/' + nn + '.mp3', directory: DIR }).then(function () { return r.uri; });
+    }).then(function (uri) {
+      if (my !== runId) return;
+      if (!audioEl) audioEl = new Audio();
+      audioEl.src = Cap.convertFileSrc(uri);
+      audioEl.onended = finish;
+      audioEl.onerror = function () { speak(s.say || '', finish); };
+      audioEl.play().catch(function () { speak(s.say || '', finish); });
+    }).catch(function () { if (my === runId) speak(s.say || '', finish); });
+  }
+
+  $('play-all').onclick = function () {
+    if ($('play-all').textContent !== '全文を聞く') { stopAll(); return; }
+    stopAll();
+    var my = runId, order = [];
+    (current.body.paras || [current.body.sents.map(function (_, i) { return i; })]).forEach(function (p) { order = order.concat(p); });
+    $('play-all').textContent = '止める';
+    var k = 0;
+    (function next() {
+      if (my !== runId) return;
+      if (k >= order.length) { stopAll(); return; }
+      playSent(order[k++], next);
+    })();
+  };
+
+  loadIndex().then(function (i) { index = i; renderLib(); });
+})();
+</script>
+</body>
+</html>

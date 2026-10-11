@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { isNativeApp } from '../../../lib/native'
 import '../../ng-ui.css'
 
 const LEVELS = ['n5', 'n4', 'n3', 'n2', 'n1']
@@ -15,12 +16,53 @@ export default function ChooseStoryPage() {
   const [lv, setLv] = useState('n3')
   const [qtext, setQtext] = useState('')
   const [done, setDone] = useState({})
+  const [guest, setGuest] = useState(false)
+
+  // ストアのアプリだけ: 端末に保存して電波なしでも読めるようにする
+  const [native, setNative] = useState(false)
+  const [saved, setSaved] = useState({})
+  const [saving, setSaving] = useState(null) // { done, total }
 
   useEffect(() => { load() }, [])
 
+  // 最後に選んだレベルを覚えておく
+  useEffect(() => {
+    try { const v = localStorage.getItem('ng-level'); if (LEVELS.includes(v)) setLv(v) } catch (e) {}
+  }, [])
+  function pickLevel(l) {
+    setLv(l)
+    try { localStorage.setItem('ng-level', l) } catch (e) {}
+  }
+
+  useEffect(() => {
+    if (!isNativeApp()) return
+    setNative(true)
+    import('../../../lib/offline').then(({ readOfflineIndex }) => readOfflineIndex().then(setSaved))
+  }, [])
+
+  async function saveLevel() {
+    const { saveLevelOffline } = await import('../../../lib/offline')
+    const stories = all.filter(s => s.lv === lv)
+    setSaving({ done: 0, total: stories.length })
+    const index = await saveLevelOffline(stories, (d, t) => setSaving({ done: d, total: t }))
+    setSaved(index)
+    setSaving(null)
+  }
+
+  async function removeLevel() {
+    const { removeLevelOffline } = await import('../../../lib/offline')
+    setSaved(await removeLevelOffline(lv))
+  }
+
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/auth'); return }
+    if (!user) {
+      // ログインなしでも一覧と本文は見られる
+      setGuest(true)
+      setAll(await fetch('/data/stories-catalog.json').then(r => r.json()).catch(() => []))
+      setLoading(false)
+      return
+    }
 
     const [cat, { data: prog }] = await Promise.all([
       fetch('/data/stories-catalog.json').then(r => r.json()).catch(() => []),
@@ -52,7 +94,9 @@ export default function ChooseStoryPage() {
           <h1 className="ng-title">Pick a story<span>199 stories, N5 to N1</span></h1>
           <div className="ng-cta">
             <button className="ng-btn ghost" onClick={() => router.push('/my')}>Today</button>
-            <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>Review</button>
+            {guest
+              ? <a className="ng-btn ghost" href="/auth?next=/my/stories&back=/my/stories">Sign in</a>
+              : <button className="ng-btn ghost" onClick={() => router.push('/my/review')}>Review</button>}
           </div>
         </div>
 
@@ -61,15 +105,42 @@ export default function ChooseStoryPage() {
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {LEVELS.map(l => (
                 <button key={l} className={'ng-btn ' + (l === lv ? '' : 'ghost')}
-                  style={{ padding: '8px 16px' }} onClick={() => setLv(l)}>{l.toUpperCase()}</button>
+                  style={{ padding: '8px 16px' }} onClick={() => pickLevel(l)}>{l.toUpperCase()}</button>
               ))}
             </div>
             <input className="ng-input" value={qtext} onChange={e => setQtext(e.target.value)}
               placeholder="Search by title or theme" style={{ minWidth: 220 }} />
           </div>
           <p className="hint" style={{ margin: '12px 0 0' }}>
-            {lv.toUpperCase()} · mini test done on {doneCount} of {all.filter(s => s.lv === lv).length}
+            {guest
+              ? <>{all.filter(s => s.lv === lv).length} stories at {lv.toUpperCase()}. <a href="/auth?mode=signup&next=/my/stories&back=/my/stories">Create a free account</a> to take the mini tests and keep your scores.</>
+              : <>{lv.toUpperCase()} · mini test done on {doneCount} of {all.filter(s => s.lv === lv).length}</>}
           </p>
+          {native && (() => {
+            const levelCount = all.filter(s => s.lv === lv).length
+            const savedCount = Object.values(saved).filter(s => s.lv === lv).length
+            return (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+                {saving ? (
+                  <span className="hint">Saving {saving.done} of {saving.total}…</span>
+                ) : savedCount >= levelCount && levelCount > 0 ? (
+                  <>
+                    <span className="ng-ok">{lv.toUpperCase()} saved for offline, with audio</span>
+                    <button className="ng-btn ghost" style={{ padding: '6px 14px' }} onClick={removeLevel}>Remove</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="ng-btn ghost" style={{ padding: '8px 16px' }} onClick={saveLevel}>
+                      Save {lv.toUpperCase()} for offline
+                    </button>
+                    <span className="hint">
+                      {savedCount > 0 ? `${savedCount} of ${levelCount} saved. ` : ''}Read and listen without a connection.
+                    </span>
+                  </>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {list.map(s => {
@@ -91,8 +162,12 @@ export default function ChooseStoryPage() {
                   </p>
                 </div>
                 <div className="ng-cta">
-                  <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`} target="_blank" rel="noopener">Read</a>
-                  <button className="ng-btn" onClick={() => router.push(`/my/test/${s.id}`)}>
+                  {native
+                    ? <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`}>Read</a>
+                    : <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`} target="_blank" rel="noopener">Read</a>}
+                  <button className="ng-btn" onClick={() => router.push(guest
+                    ? `/auth?mode=signup&next=${encodeURIComponent('/my/test/' + s.id)}&back=/my/stories`
+                    : `/my/test/${s.id}`)}>
                     {d?.max != null ? 'Again' : 'Mini test, 8 questions'}
                   </button>
                 </div>
