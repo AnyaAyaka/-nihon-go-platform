@@ -1,0 +1,19 @@
+{
+  "appId": "com.nihongoworld.app",
+  "appName": "Nihon GO!",
+  "webDir": "www",
+  "server": {
+    "url": "https://app.nihongo-world.com/my",
+    "allowNavigation": [
+      "app.nihongo-world.com",
+      "nihongo-world.com",
+      "bnncerddxtxemzqfosou.supabase.co"
+    ]
+  },
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

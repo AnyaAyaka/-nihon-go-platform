@@ -11,7 +11,11 @@ export default function AuthPage() {
   const linkedRef = useRef(false)
 
   useEffect(() => {
-    const paymentIntent = new URLSearchParams(window.location.search).get('payment')
+    const params = new URLSearchParams(window.location.search)
+    const paymentIntent = params.get('payment')
+    // ログイン後に戻る先（同じサイト内のパスだけ受け付ける）
+    const nextParam = params.get('next') || ''
+    const nextPath = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/dashboard'
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -56,7 +60,7 @@ export default function AuthPage() {
           }
         }
 
-        router.push('/dashboard')
+        router.push(nextPath)
       }
     })
 
