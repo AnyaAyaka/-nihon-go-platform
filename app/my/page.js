@@ -19,12 +19,14 @@ export default function MyWorkPage() {
   const [mocks, setMocks] = useState({})
   const [history, setHistory] = useState([])
   const [native, setNative] = useState(false)
+  const [guest, setGuest] = useState(false)
 
   useEffect(() => { load(); setNative(isNativeApp()) }, [])
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/auth'); return }
+    // ログインしていなくても使える。読むのは無料、テストと復習はアカウントが要る
+    if (!user) { setGuest(true); setLoading(false); return }
 
     // pick up any invitation sent to this address
     await supabase.from('class_students')
@@ -75,6 +77,43 @@ export default function MyWorkPage() {
   }
 
   if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+
+  if (guest) return (
+    <div className="ng">
+      <div className="ng-wrap ng-app">
+        <div className="ng-bar">
+          <h1 className="ng-title">Today<span>Your study</span></h1>
+          <div className="ng-cta">
+            <button className="ng-btn" onClick={() => router.push('/my/stories')}>Pick a story</button>
+            <a className="ng-btn ghost" href="/auth?next=/my">Sign in</a>
+          </div>
+        </div>
+
+        <div className="ng-panel">
+          <h2>Start with a story</h2>
+          <p className="hint" style={{ margin: '6px 0 14px' }}>
+            199 short stories from N5 to N1, with audio for every sentence. Pick your level and start reading.
+            No account needed.
+          </p>
+          <button className="ng-btn" onClick={() => router.push('/my/stories')}>Pick a story</button>
+        </div>
+
+        <div className="ng-panel">
+          <h2>Keep your progress</h2>
+          <p className="hint" style={{ margin: '6px 0 14px' }}>
+            With a free account you can take the mini test after each story, keep a review list of what you got wrong,
+            and see everything you have read.
+          </p>
+          <div className="ng-cta">
+            <a className="ng-btn" href="/auth?mode=signup&next=/my">Create a free account</a>
+            <a className="ng-btn ghost" href="/auth?next=/my">Sign in</a>
+          </div>
+        </div>
+
+        <Reminder />
+      </div>
+    </div>
+  )
 
   return (
     <div className="ng">
