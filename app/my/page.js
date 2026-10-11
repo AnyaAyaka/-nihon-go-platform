@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { dueCount } from '../../lib/review'
 import { useRouter } from 'next/navigation'
+import { isNativeApp } from '../../lib/native'
+import Reminder from './Reminder'
 import '../ng-ui.css'
 
 const STORIES_BASE = 'https://nihongo-world.com/materials/stories'
@@ -16,8 +18,9 @@ export default function MyWorkPage() {
   const [due, setDue] = useState(0)
   const [mocks, setMocks] = useState({})
   const [history, setHistory] = useState([])
+  const [native, setNative] = useState(false)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); setNative(isNativeApp()) }, [])
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -109,6 +112,8 @@ export default function MyWorkPage() {
           </div>
         )}
 
+        <Reminder />
+
         {history.length > 0 && (
           <div className="ng-panel">
             <h2>What you have done</h2>
@@ -169,7 +174,9 @@ export default function MyWorkPage() {
                     </button>
                   ) : (
                     <>
-                      <a className="ng-btn" href={href} target="_blank" rel="noopener">Read</a>
+                      {native
+                        ? <a className="ng-btn" href={href}>Read</a>
+                        : <a className="ng-btn" href={href} target="_blank" rel="noopener">Read</a>}
                       {!r.done && (
                         <button className="ng-btn ghost" onClick={() => markRead(r.ref_id)}>Read</button>
                       )}

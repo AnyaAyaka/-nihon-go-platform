@@ -4,11 +4,18 @@
   "webDir": "www",
   "server": {
     "url": "https://app.nihongo-world.com/my",
+    "errorPath": "offline.html",
     "allowNavigation": [
       "app.nihongo-world.com",
       "nihongo-world.com",
       "bnncerddxtxemzqfosou.supabase.co"
     ]
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon",
+      "iconColor": "#1C2226"
+    }
   },
   "ios": {
     "contentInset": "automatic"

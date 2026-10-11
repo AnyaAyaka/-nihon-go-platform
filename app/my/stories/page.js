@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { isNativeApp } from '../../../lib/native'
 import '../../ng-ui.css'
 
 const LEVELS = ['n5', 'n4', 'n3', 'n2', 'n1']
@@ -16,7 +17,32 @@ export default function ChooseStoryPage() {
   const [qtext, setQtext] = useState('')
   const [done, setDone] = useState({})
 
+  // ストアのアプリだけ: 端末に保存して電波なしでも読めるようにする
+  const [native, setNative] = useState(false)
+  const [saved, setSaved] = useState({})
+  const [saving, setSaving] = useState(null) // { done, total }
+
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!isNativeApp()) return
+    setNative(true)
+    import('../../../lib/offline').then(({ readOfflineIndex }) => readOfflineIndex().then(setSaved))
+  }, [])
+
+  async function saveLevel() {
+    const { saveLevelOffline } = await import('../../../lib/offline')
+    const stories = all.filter(s => s.lv === lv)
+    setSaving({ done: 0, total: stories.length })
+    const index = await saveLevelOffline(stories, (d, t) => setSaving({ done: d, total: t }))
+    setSaved(index)
+    setSaving(null)
+  }
+
+  async function removeLevel() {
+    const { removeLevelOffline } = await import('../../../lib/offline')
+    setSaved(await removeLevelOffline(lv))
+  }
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -70,6 +96,31 @@ export default function ChooseStoryPage() {
           <p className="hint" style={{ margin: '12px 0 0' }}>
             {lv.toUpperCase()} · mini test done on {doneCount} of {all.filter(s => s.lv === lv).length}
           </p>
+          {native && (() => {
+            const levelCount = all.filter(s => s.lv === lv).length
+            const savedCount = Object.values(saved).filter(s => s.lv === lv).length
+            return (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+                {saving ? (
+                  <span className="hint">Saving {saving.done} of {saving.total}…</span>
+                ) : savedCount >= levelCount && levelCount > 0 ? (
+                  <>
+                    <span className="ng-ok">{lv.toUpperCase()} saved for offline, with audio</span>
+                    <button className="ng-btn ghost" style={{ padding: '6px 14px' }} onClick={removeLevel}>Remove</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="ng-btn ghost" style={{ padding: '8px 16px' }} onClick={saveLevel}>
+                      Save {lv.toUpperCase()} for offline
+                    </button>
+                    <span className="hint">
+                      {savedCount > 0 ? `${savedCount} of ${levelCount} saved. ` : ''}Read and listen without a connection.
+                    </span>
+                  </>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {list.map(s => {
@@ -91,7 +142,9 @@ export default function ChooseStoryPage() {
                   </p>
                 </div>
                 <div className="ng-cta">
-                  <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`} target="_blank" rel="noopener">Read</a>
+                  {native
+                    ? <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`}>Read</a>
+                    : <a className="ng-btn ghost" href={`${STORIES_BASE}/${s.lv}/${s.slug}/`} target="_blank" rel="noopener">Read</a>}
                   <button className="ng-btn" onClick={() => router.push(`/my/test/${s.id}`)}>
                     {d?.max != null ? 'Again' : 'Mini test, 8 questions'}
                   </button>
