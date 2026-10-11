@@ -87,6 +87,7 @@ export default function MyWorkPage() {
               Review{due > 0 ? ` ${due}` : ''}
             </button>
             <a className="ng-btn ghost" href="/dashboard">Dashboard</a>
+            <a className="ng-btn ghost" href="/account">Account</a>
           </div>
         </div>
 
