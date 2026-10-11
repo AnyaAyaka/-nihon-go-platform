@@ -24,6 +24,8 @@ export default function StoryTestPage() {
   const [titles, setTitles] = useState({})
   const [picked, setPicked] = useState({})
   const [saved, setSaved] = useState(false)
+  // N5 だけ：問題と選択肢のローマ字
+  const [showRo, setShowRo] = useState(false)
 
   useEffect(() => { load() }, [id])
 
@@ -105,6 +107,9 @@ export default function StoryTestPage() {
                 href={`https://nihongo-world.com/materials/stories/${story.lv}/${story.slug}/`}
                 target="_blank" rel="noopener">Read the story</a>
             )}
+            {questions.some(q => q.qro) && (
+              <button className={'ng-btn' + (showRo ? '' : ' ghost')} aria-pressed={showRo} onClick={() => setShowRo(v => !v)}>Romaji</button>
+            )}
             <button className="ng-btn ghost" onClick={() => router.push('/my')}>Today</button>
           </div>
         </div>
@@ -116,6 +121,7 @@ export default function StoryTestPage() {
               <div className="ng-tag">{i + 1} / {questions.length}　{LABEL[q.t] || ''}</div>
               <p style={{ fontFamily: 'var(--read)', fontSize: '1.15rem', lineHeight: 2.2, margin: '6px 0 14px' }}
                 dangerouslySetInnerHTML={{ __html: ruby(q.q) }} />
+              {showRo && q.qro && <p className="hint" style={{ margin: '-8px 0 14px' }}>{q.qro}</p>}
               {q.o.map((o, m) => {
                 const right = done && m === q.a
                 const wrong = done && m === picked[i] && m !== q.a
@@ -131,6 +137,7 @@ export default function StoryTestPage() {
                     }}>
                     <span className="ng-tag" style={{ marginRight: 10 }}>{m + 1}</span>
                     <span dangerouslySetInnerHTML={{ __html: ruby(o) }} />
+                    {showRo && q.oro && q.oro[m] && <span className="hint" style={{ display: 'block', marginLeft: 34, fontSize: '.88rem' }}>{q.oro[m]}</span>}
                   </button>
                 )
               })}
