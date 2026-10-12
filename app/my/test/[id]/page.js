@@ -24,6 +24,7 @@ export default function StoryTestPage() {
   const [titles, setTitles] = useState({})
   const [picked, setPicked] = useState({})
   const [saved, setSaved] = useState(false)
+  const [locked, setLocked] = useState(false)
   // N5 だけ：問題と選択肢のローマ字
   const [showRo, setShowRo] = useState(false)
 
@@ -38,9 +39,10 @@ export default function StoryTestPage() {
       fetch(`/api/content/story-test?id=${encodeURIComponent(id)}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
         cache: 'no-store'
-      }).then(r => r.ok ? r.json() : { questions: [] }).catch(() => ({ questions: [] })),
+      }).then(r => r.status === 402 ? { locked: true, questions: [] } : r.ok ? r.json() : { questions: [] }).catch(() => ({ questions: [] })),
       fetch('/data/stories-catalog.json').then(r => r.json()).catch(() => [])
     ])
+    setLocked(!!test.locked)
     setQuestions(test.questions || [])
     setTitles(test.titles || {})
     setStory(cat.find(s => s.id === id) || null)
@@ -90,6 +92,21 @@ export default function StoryTestPage() {
   }
 
   if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (locked) return (
+    <div className="ng"><div className="ng-wrap ng-app" style={{ maxWidth: 640 }}>
+      <div className="ng-panel">
+        <h2>This mini test is part of the Reader Pass</h2>
+        <p className="hint" style={{ margin: '6px 0 14px' }}>
+          The story is free to read. The Reader Pass adds a mini test after every story, grammar practice
+          for N4 to N1, and every JLPT mock test. £4.99 a month or £29.99 a year, cancel any time.
+        </p>
+        <div className="ng-cta">
+          <a className="ng-btn" href="/pass">See the Reader Pass</a>
+          <a className="ng-btn ghost" href="/my/stories">Back to stories</a>
+        </div>
+      </div>
+    </div></div>
+  )
   if (!questions.length) return (
     <div className="ng"><div className="ng-wrap ng-app">
       <p className="ng-empty">There is no mini test for this story yet.</p>

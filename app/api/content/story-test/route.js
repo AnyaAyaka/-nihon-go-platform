@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import TESTS from '../../../../content/story-tests.json'
 import GRAMMAR from '../../../../content/grammar-drills.json'
+import { storyIsFree, hasPass } from '../../../../lib/pass'
 
 // 力だめしの問題は、ここからしか出ません。
 // ログインしていない人には何も返しません。1回のリクエストで1話分だけ。
@@ -32,6 +33,9 @@ export async function GET(req) {
 
   const questions = TESTS[id]
   if (!questions) return deny(404, 'no test for this story')
+
+  // N5 と各レベル最初の5話は無料。それ以外は Reader Pass
+  if (!storyIsFree(id) && !(await hasPass(admin, data.user.id))) return deny(402, 'pass')
 
   // この回に出てくる文法のタイトルだけ添える（先生の画面で名前を出すため）
   const titles = {}

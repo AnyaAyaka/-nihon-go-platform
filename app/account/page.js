@@ -81,7 +81,10 @@ export default function AccountPage() {
             <div className="ng-panel">
               <h2>Signed in</h2>
               <p className="hint" style={{ margin: '6px 0 14px' }}>{user.email}</p>
-              <button className="ng-btn ghost" onClick={signOut}>Sign out</button>
+              <div className="ng-cta">
+                <a className="ng-btn ghost" href="/pass">Reader Pass</a>
+                <button className="ng-btn ghost" onClick={signOut}>Sign out</button>
+              </div>
             </div>
 
             <div className="ng-panel">

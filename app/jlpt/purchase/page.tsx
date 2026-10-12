@@ -176,6 +176,13 @@ function PurchaseContent() {
       >
         {loading ? 'Processing...' : `Buy ${selected} Pack`}
       </button>
+      <div style={{ marginTop: '24px', padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#f8fafc' }}>
+        <p style={{ margin: '0 0 6px', fontWeight: 600 }}>Studying more than one level?</p>
+        <p style={{ margin: '0 0 12px', color: '#475569', fontSize: '14px' }}>
+          The Reader Pass opens every mock test at every level, plus a mini test after every story and grammar practice. £4.99 a month or £29.99 a year.
+        </p>
+        <a href="/pass" style={{ color: '#2563eb', fontWeight: 600 }}>See the Reader Pass</a>
+      </div>
     </div>
   )
 }

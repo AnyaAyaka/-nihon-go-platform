@@ -17,6 +17,7 @@ export default function ChooseStoryPage() {
   const [qtext, setQtext] = useState('')
   const [done, setDone] = useState({})
   const [guest, setGuest] = useState(false)
+  const [pass, setPass] = useState(false)
 
   // ストアのアプリだけ: 端末に保存して電波なしでも読めるようにする
   const [native, setNative] = useState(false)
@@ -63,6 +64,10 @@ export default function ChooseStoryPage() {
       setLoading(false)
       return
     }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    fetch('/api/pass/status', { headers: { Authorization: `Bearer ${session?.access_token || ''}` }, cache: 'no-store' })
+      .then(r => r.json()).then(j => setPass(!!j.access)).catch(() => {})
 
     const [cat, { data: prog }] = await Promise.all([
       fetch('/data/stories-catalog.json').then(r => r.json()).catch(() => []),
@@ -168,7 +173,7 @@ export default function ChooseStoryPage() {
                   <button className="ng-btn" onClick={() => router.push(guest
                     ? `/auth?mode=signup&next=${encodeURIComponent('/my/test/' + s.id)}&back=/my/stories`
                     : `/my/test/${s.id}`)}>
-                    {d?.max != null ? 'Again' : 'Mini test, 8 questions'}
+                    {d?.max != null ? 'Again' : (!pass && s.lv !== 'n5' && Number(String(s.id).split('-')[1]) > 5) ? 'Mini test · Pass' : 'Mini test, 8 questions'}
                   </button>
                 </div>
               </div>

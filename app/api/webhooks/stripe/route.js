@@ -54,6 +54,46 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Webhook error' }, { status: 400 })
   }
 
+  // ---- Reader Pass（定期支払い）----
+  const passObj = event.data.object
+  const isPass = (passObj?.metadata?.kind === 'reader_pass') ||
+    (event.type.startsWith('customer.subscription.') && passObj?.metadata?.kind === 'reader_pass')
+  if (isPass) {
+    try {
+      const subId = event.type === 'checkout.session.completed' ? passObj.subscription : passObj.id
+      const sub = await stripe.subscriptions.retrieve(subId)
+      const userId = sub.metadata?.userId || passObj.metadata?.userId
+      const end = sub.current_period_end || sub.items?.data?.[0]?.current_period_end
+      const ok = ['active', 'trialing', 'past_due'].includes(sub.status)
+      if (userId) {
+        await supabase.from('reader_pass').upsert({
+          user_id: userId,
+          plan: sub.metadata?.plan || 'month',
+          status: ok ? 'active' : 'ended',
+          current_period_end: new Date((end || 0) * 1000).toISOString(),
+          source: 'stripe',
+          stripe_customer_id: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
+          stripe_subscription_id: sub.id,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+      }
+      if (event.type === 'checkout.session.completed') {
+        try {
+          await resend.emails.send({
+            from: 'Nihon GO! World <noreply@nihongo-world.com>',
+            to: 'info@nihongolondon.com',
+            subject: 'New Reader Pass - Nihon GO! World',
+            html: `<p>New Reader Pass (${sub.metadata?.plan || 'month'}): ${passObj.customer_details?.email || ''}</p>`
+          })
+        } catch (e) { console.error('pass notify failed', e) }
+      }
+    } catch (e) {
+      console.error('Reader Pass webhook failed:', e)
+      return NextResponse.json({ error: 'pass update failed' }, { status: 500 })
+    }
+    return NextResponse.json({ received: true })
+  }
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const userId = session.metadata.userId

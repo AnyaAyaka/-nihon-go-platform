@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import Stripe from 'stripe'
 
 // 本人がアカウントを削除する。Apple と Google の審査で必須。
 // 予約中のレッスンがある人と、講師・管理者は削除できない（メールで対応）。
@@ -39,6 +40,16 @@ export async function POST(req) {
     .eq('student_id', uid).neq('status', 'cancelled').gt('start_time', new Date().toISOString())
   if (upcoming) {
     return send({ error: 'upcoming', message: `You have ${upcoming} upcoming ${upcoming === 1 ? 'lesson' : 'lessons'}. Please cancel ${upcoming === 1 ? 'it' : 'them'} first, or email info@nihongolondon.com.` }, 409)
+  }
+
+  // Reader Pass の定期支払いを止める（止めないと請求が続く）
+  const { data: pass } = await admin.from('reader_pass').select('stripe_subscription_id').eq('user_id', uid).maybeSingle()
+  if (pass?.stripe_subscription_id) {
+    try {
+      await new Stripe(process.env.STRIPE_SECRET_KEY).subscriptions.cancel(pass.stripe_subscription_id)
+    } catch (e) {
+      return send({ error: 'failed', message: 'We could not cancel your Reader Pass. Please email info@nihongolondon.com.' }, 500)
+    }
   }
 
   // auth.users に「削除不可」でつながっている表を先に消す

@@ -26,12 +26,12 @@ export default function GrammarDrillPage() {
 
   async function load() {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) { router.push('/auth'); return }
+    if (!session?.user) { router.push(`/auth?next=${encodeURIComponent('/my/drill/' + g)}`); return }
     const res = await fetch(`/api/content/drill?g=${encodeURIComponent(g)}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
       cache: 'no-store'
     })
-    setData(res.ok ? await res.json() : null)
+    setData(res.status === 402 ? { locked: true } : res.ok ? await res.json() : null)
     setLoading(false)
   }
 
@@ -72,6 +72,21 @@ export default function GrammarDrillPage() {
   }
 
   if (loading) return <div className="ng"><div className="ng-wrap ng-app">Loading…</div></div>
+  if (data?.locked) return (
+    <div className="ng"><div className="ng-wrap ng-app" style={{ maxWidth: 640 }}>
+      <div className="ng-panel">
+        <h2>Grammar practice is part of the Reader Pass</h2>
+        <p className="hint" style={{ margin: '6px 0 14px' }}>
+          N5 grammar practice is free. For N4 to N1, the Reader Pass opens grammar practice for every point,
+          a mini test after every story and every JLPT mock test. £4.99 a month or £29.99 a year.
+        </p>
+        <div className="ng-cta">
+          <a className="ng-btn" href="/pass">See the Reader Pass</a>
+          <button className="ng-btn ghost" onClick={() => router.push('/my')}>Back</button>
+        </div>
+      </div>
+    </div></div>
+  )
   if (!data) return (
     <div className="ng"><div className="ng-wrap ng-app">
       <p className="ng-empty">There is no practice for this grammar point yet.</p>

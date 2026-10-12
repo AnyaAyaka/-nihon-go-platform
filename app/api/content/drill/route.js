@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import GRAMMAR from '../../../../content/grammar-drills.json'
+import { grammarIsFree, hasPass } from '../../../../lib/pass'
 
 // 文法ドリルはここからしか出ません。ログイン必須、1回につき1文法だけ。
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,9 @@ export async function GET(req) {
   if (!id) return send({ error: 'missing g' }, 400)
   const g = GRAMMAR[id]
   if (!g) return send({ error: 'no drill for this grammar point' }, 404)
+
+  // N5 の文法練習は無料。N4〜N1 は Reader Pass
+  if (!grammarIsFree(g.lv) && !(await hasPass(admin, data.user.id))) return send({ error: 'pass' }, 402)
 
   return send({
     id,
