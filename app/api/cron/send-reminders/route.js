@@ -21,7 +21,8 @@ function verifyCronRequest(request) {
 
 // ティアを判定
 function determineTier(lessonCount) {
-  if (lessonCount >= 100) return 'gold'
+  if (lessonCount >= 100) return 'platinum'
+  if (lessonCount >= 75) return 'gold'
   if (lessonCount >= 50) return 'silver'
   if (lessonCount >= 25) return 'bronze'
   return 'none'
@@ -30,9 +31,10 @@ function determineTier(lessonCount) {
 // ティア昇格メールを送信
 async function sendTierUpgradeEmail(profile, newTier) {
   const tierInfo = {
-    bronze: { name: 'Bronze', benefit: '10% OFF on your next purchase', color: '#CD7F32' },
-    silver: { name: 'Silver', benefit: '5% OFF on all purchases', color: '#C0C0C0' },
-    gold: { name: 'Gold', benefit: '10% OFF on all purchases', color: '#FFD700' }
+    bronze: { name: 'Bronze', benefit: '5% OFF on all purchases', color: '#CD7F32' },
+    silver: { name: 'Silver', benefit: '10% OFF on all purchases', color: '#C0C0C0' },
+    gold: { name: 'Gold', benefit: '15% OFF on all purchases', color: '#FFD700' },
+    platinum: { name: 'Platinum', benefit: '20% OFF on all purchases', color: '#E5E4E2' }
   }
 
   const info = tierInfo[newTier]
@@ -89,10 +91,16 @@ async function updateTiers() {
 
   for (const profile of profiles || []) {
     // 完了したレッスン数をカウント
-    const { count, error: countError } = await supabase
+    // 直近1年に受けたレッスンだけ数える（1年でリセット）
+    // 90分レッスンは1.5回分として数える
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
+    const { data: doneLessons, error: countError } = await supabase
       .from('bookings')
-      .select('*', { count: 'exact', head: true })
+      .select('lesson_type')
       .eq('student_id', profile.user_id)
+      .gte('start_time', oneYearAgo.toISOString())
       .or('status.eq.completed,and(status.eq.confirmed,start_time.lt.now())')
 
     if (countError) {
@@ -100,12 +108,18 @@ async function updateTiers() {
       continue
     }
 
-    const lessonCount = count || 0
+    const weighted = (doneLessons || []).reduce(
+      (sum, b) => sum + ((b.lesson_type || '').includes('90') ? 1.5 : 1),
+      0
+    )
+    const lessonCount = weighted
     const newTier = determineTier(lessonCount)
 
     // 変更があれば更新
-    if (lessonCount !== profile.total_lessons_completed || newTier !== profile.tier) {
-      const tierChanged = newTier !== profile.tier && newTier !== 'none'
+    if (lessonCount !== Number(profile.total_lessons_completed) || newTier !== profile.tier) {
+      // 上がったときだけお祝いメール（1年経って下がったときは送らない）
+      const rank = { none: 0, bronze: 1, silver: 2, gold: 3, platinum: 4 }
+      const tierChanged = (rank[newTier] || 0) > (rank[profile.tier] || 0)
 
       await supabase
         .from('profiles')

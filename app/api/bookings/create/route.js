@@ -11,6 +11,41 @@ const supabase = createClient(
 const resend = new Resend(process.env.RESEND_API_KEY)
 const SITE_URL = 'https://app.nihongo-world.com'
 
+// 講師のGoogleカレンダーにその時間の予定が入っているかをその場で確認する。
+// カレンダー未接続、またはGoogle側のエラーのときは止めずに通す（予約自体は止めない）。
+async function isTeacherBusyNow(teacher, startMs, endMs) {
+  if (!teacher?.google_refresh_token) return false
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    )
+    oauth2Client.setCredentials({ refresh_token: teacher.google_refresh_token })
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+
+    const calendarId = teacher.google_calendar_id || 'primary'
+    const response = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: new Date(startMs).toISOString(),
+        timeMax: new Date(endMs).toISOString(),
+        items: [{ id: calendarId }]
+      }
+    })
+
+    const busy = response.data.calendars?.[calendarId]?.busy || []
+    return busy.some((b) => {
+      const bStart = new Date(b.start).getTime()
+      const bEnd = new Date(b.end).getTime()
+      return startMs < bEnd && endMs > bStart
+    })
+  } catch (error) {
+    console.error('Live calendar check failed, allowing booking:', error)
+    return false
+  }
+}
+
 async function addToGoogleCalendar(teacher, booking, studentName) {
   if (!teacher.google_refresh_token) {
     console.log('Teacher has no Google Calendar connected')
@@ -229,6 +264,12 @@ export async function POST(request) {
       .select('*, zoom_link, google_refresh_token')
       .eq('id', slotData.teacher_id)
       .single()
+
+    // 予約の瞬間に講師のGoogleカレンダーを確認する。
+    // 1日1回の同期の後に講師が入れた予定があれば、ここで弾く。
+    if (await isTeacherBusyNow(teacherData, startMs, actualEndMs)) {
+      return NextResponse.json({ error: 'This time slot is no longer available' }, { status: 409 })
+    }
 
     const { data: studentProfile } = await supabase
       .from('profiles')
