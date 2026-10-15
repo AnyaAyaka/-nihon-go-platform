@@ -13,7 +13,7 @@ const SITE_URL = 'https://app.nihongo-world.com'
 
 // 講師のGoogleカレンダーにその時間の予定が入っているかをその場で確認する。
 // カレンダー未接続、またはGoogle側のエラーのときは止めずに通す（予約自体は止めない）。
-async function isTeacherBusyNow(teacher, startMs, endMs) {
+async function isTeacherBusyNow(teacher, startMs, endMs, inPerson = false) {
   if (!teacher?.google_refresh_token) return false
 
   try {
@@ -25,20 +25,52 @@ async function isTeacherBusyNow(teacher, startMs, endMs) {
     oauth2Client.setCredentials({ refresh_token: teacher.google_refresh_token })
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
 
+    // 対面は移動時間として、開始の1時間前から空いている必要がある
+    const checkFromMs = inPerson ? startMs - TRAVEL_MINUTES * 60 * 1000 : startMs
+
     const calendarId = teacher.google_calendar_id || 'primary'
     const response = await calendar.freebusy.query({
       requestBody: {
-        timeMin: new Date(startMs).toISOString(),
+        timeMin: new Date(checkFromMs).toISOString(),
         timeMax: new Date(endMs).toISOString(),
         items: [{ id: calendarId }]
       }
     })
 
     const busy = response.data.calendars?.[calendarId]?.busy || []
+    if (busy.length === 0) return false
+
+    // 移動時間の中に入っているのが、うちの対面レッスン（教室で連続）なら移動なしなので止めない
+    let inPersonLessons = []
+    if (inPerson) {
+      const { data } = await supabase
+        .from('bookings')
+        .select('start_time, end_time, lesson_type')
+        .eq('teacher_id', teacher.id)
+        .neq('status', 'cancelled')
+        .in('lesson_type', IN_PERSON_LESSON_TYPES)
+        .lt('start_time', new Date(startMs).toISOString())
+        .gte('end_time', new Date(checkFromMs - 3 * 60 * 60 * 1000).toISOString())
+      inPersonLessons = data || []
+    }
+
     return busy.some((b) => {
       const bStart = new Date(b.start).getTime()
       const bEnd = new Date(b.end).getTime()
-      return startMs < bEnd && endMs > bStart
+
+      // レッスン本体と重なる予定は常にNG
+      if (startMs < bEnd && endMs > bStart) return true
+
+      // 移動時間（開始前1時間）と重なる予定
+      if (inPerson && checkFromMs < bEnd && startMs > bStart) {
+        const isOurInPersonLesson = inPersonLessons.some((l) => {
+          const lStart = new Date(l.start_time).getTime()
+          const lEnd = new Date(l.end_time).getTime() + LESSON_BUFFER_MINUTES * 60 * 1000
+          return lStart <= bStart && lEnd >= bEnd
+        })
+        return !isOurInPersonLesson
+      }
+      return false
     })
   } catch (error) {
     console.error('Live calendar check failed, allowing booking:', error)
@@ -191,6 +223,10 @@ const TICKET_TO_LESSON_TYPE = {
   in_person_pair: 'in_person'
 }
 
+// 対面レッスンの種類と、対面前に必要な移動時間（分）
+const IN_PERSON_LESSON_TYPES = ['in_person', 'in_person_90', 'inperson_trial']
+const TRAVEL_MINUTES = 60
+
 const PAIR_TICKET_TYPES = ['online_trial_pair', 'online_pair', 'inperson_trial_pair', 'in_person_pair']
 
 // レッスンの実尺（分）。end_time は必ずサーバ側で start + 実尺 に確定させる（クライアント値は信用しない）。
@@ -267,7 +303,7 @@ export async function POST(request) {
 
     // 予約の瞬間に講師のGoogleカレンダーを確認する。
     // 1日1回の同期の後に講師が入れた予定があれば、ここで弾く。
-    if (await isTeacherBusyNow(teacherData, startMs, actualEndMs)) {
+    if (await isTeacherBusyNow(teacherData, startMs, actualEndMs, IN_PERSON_LESSON_TYPES.includes(lessonType))) {
       return NextResponse.json({ error: 'This time slot is no longer available' }, { status: 409 })
     }
 
