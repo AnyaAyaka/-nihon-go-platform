@@ -131,12 +131,15 @@ function BookingContent() {
   }
 
   const fetchTeachers = async () => {
-    // まず全講師を取得
-    const { data } = await supabase
-      .from('profiles')
-      .select('user_id, email, full_name, display_name, bio, lesson_types, location, sort_order')
-      .eq('role', 'teacher')
-      .order('display_name')
+    // まず全講師を取得。未ログインの人は profiles を読めないので、
+    // 表示用の項目だけ返す public_teachers() を使う
+    const { data } = user
+      ? await supabase
+          .from('profiles')
+          .select('user_id, email, full_name, display_name, bio, lesson_types, location, sort_order')
+          .eq('role', 'teacher')
+          .order('display_name')
+      : await supabase.rpc('public_teachers')
 
     let filteredData = data || []
 
