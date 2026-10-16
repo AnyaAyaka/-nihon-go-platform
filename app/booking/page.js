@@ -73,24 +73,38 @@ function BookingContent() {
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
+  // ログイン確認が終わったか（未ログインでも講師と空き時間は見られる）
+  const [authChecked, setAuthChecked] = useState(false)
+  // 未ログイン or チケットなしで時間を押した時の案内
+  const [gateDialog, setGateDialog] = useState(null) // 'signup' | 'ticket' | null
   const router = useRouter()
   const searchParams = useSearchParams()
   const locationFilter = searchParams.get('location')
+  const teacherParam = searchParams.get('teacher')
 
   useEffect(() => {
     checkUser()
   }, [])
 
   useEffect(() => {
-    if (user) {
+    if (authChecked) {
       fetchTeachers()
     }
-  }, [user])
+  }, [authChecked, user])
+
+  // 登録後に戻ってきた時、選んでいた講師を開き直す
+  useEffect(() => {
+    if (!teacherParam || selectedTeacher || teachers.length === 0) return
+    const t = teachers.find(x => x.user_id === teacherParam)
+    if (t) handleSelectTeacher(t)
+  }, [teachers, allTickets])
 
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      router.push('/auth')
+      // 未ログインでも予約画面は見られる。登録は時間を選んだ時に求める
+      setUser(null)
+      setAuthChecked(true)
       return
     }
 
@@ -113,6 +127,7 @@ function BookingContent() {
       const validTickets = ticketsData.filter(t => t.remaining_tickets > 0)
       setAllTickets(validTickets)
     }
+    setAuthChecked(true)
   }
 
   const fetchTeachers = async () => {
@@ -245,14 +260,31 @@ function BookingContent() {
     setExistingBookings([])
     setSelectedDate(null)
     const options = getLessonOptionsForTeacher(teacher)
-    // 既定は従来通り先頭のチケット（＝現行挙動を維持）
-    setSelectedTicketType(options[0]?.ticketType || null)
+    // 既定は従来通り先頭のチケット（＝現行挙動を維持）。
+    // チケットがない人（未ログイン含む）は55分で空き時間だけ見せる
+    setSelectedTicketType(options[0]?.ticketType || 'preview')
     fetchAvailableSlots(teacher.user_id)
   }
 
   const handleSlotClick = (slot) => {
     setSelectedSlot(slot)
+    if (!user) {
+      setGateDialog('signup')
+      return
+    }
+    if (getAvailableTicketsForTeacher(selectedTeacher).length === 0) {
+      setGateDialog('ticket')
+      return
+    }
     setShowConfirmDialog(true)
+  }
+
+  // 登録・ログイン後にこの講師の予約画面へ戻すURL
+  const returnPath = () => {
+    const q = new URLSearchParams()
+    if (selectedTeacher) q.set('teacher', selectedTeacher.user_id)
+    if (locationFilter) q.set('location', locationFilter)
+    return '/booking' + (q.toString() ? '?' + q.toString() : '')
   }
 
   const handleConfirmBooking = async () => {
@@ -408,6 +440,105 @@ function BookingContent() {
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
+        {gateDialog && selectedSlot && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '20px',
+              padding: '30px',
+              maxWidth: '500px',
+              width: '90%'
+            }}>
+              <h2 style={{ marginTop: 0 }}>
+                {gateDialog === 'signup' ? 'Create a free account to book' : 'Get a lesson ticket to book'}
+              </h2>
+
+              <div style={{ margin: '20px 0', padding: '20px', background: '#f5f7fa', borderRadius: '10px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <strong>Teacher:</strong> {selectedTeacher.display_name || selectedTeacher.full_name}
+                </div>
+                <div>
+                  <strong>Time:</strong> {new Date(selectedSlot.start_time_utc).toLocaleDateString('en-GB', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    timeZone: 'Europe/London'
+                  })}, {formatTime(selectedSlot.start_time_utc)} (London time)
+                </div>
+              </div>
+
+              <p style={{ color: '#666', fontSize: '14px' }}>
+                {gateDialog === 'signup'
+                  ? 'Your account keeps your bookings, lesson tickets and Zoom details in one place. It takes about a minute, and you will come straight back to this teacher.'
+                  : 'Each lesson uses one ticket. A trial lesson is £23 online or £40 in person. After buying, come back here and pick your time.'}
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  onClick={() => {
+                    setGateDialog(null)
+                    setSelectedSlot(null)
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '2px solid #e1e5e9',
+                    background: 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (gateDialog === 'signup') {
+                      router.push('/auth?mode=signup&next=' + encodeURIComponent(returnPath()))
+                    } else {
+                      router.push('/subscription')
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#6366f1',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}
+                >
+                  {gateDialog === 'signup' ? 'Create account' : 'Buy a ticket'}
+                </button>
+              </div>
+
+              {gateDialog === 'signup' && (
+                <p style={{ textAlign: 'center', fontSize: '14px', margin: '15px 0 0' }}>
+                  Already have an account?{' '}
+                  <a href={'/auth?next=' + encodeURIComponent(returnPath())} style={{ color: '#6366f1', fontWeight: '600' }}>
+                    Sign in
+                  </a>
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {showConfirmDialog && selectedSlot && (
           <div style={{
             position: 'fixed',
@@ -518,7 +649,9 @@ function BookingContent() {
             }}>
               {teachers.map((teacher) => {
                 const availableTickets = getAvailableTicketsForTeacher(teacher)
-                const canBook = availableTickets.length > 0
+                // 誰でも講師を開いて空き時間を見られる。チケットの確認は時間を選んだ時
+                const canBook = true
+                const hasTicket = availableTickets.length > 0
                 
                 return (
                   <div 
@@ -543,8 +676,8 @@ function BookingContent() {
                     <div style={{ fontSize: '12px', marginBottom: '5px', color: '#888' }}>
                       Lesson types: {teacher.lesson_types ? teacher.lesson_types.map(t => TICKET_LABELS[t] || t).join(', ') : 'None'}
                     </div>
-                    <div style={{ fontSize: '12px', fontWeight: '600', color: canBook ? '#10b981' : '#ef4444' }}>
-                      {canBook ? 'Available' : 'No compatible tickets'}
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#10b981' }}>
+                      {hasTicket || !user ? 'See available times' : 'See available times (ticket needed to book)'}
                     </div>
                   </div>
                 )
@@ -746,7 +879,7 @@ function BookingContent() {
 
         <div style={{ marginTop: '30px', textAlign: 'center' }}>
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push(user ? '/dashboard' : '/auth?next=' + encodeURIComponent(returnPath()))}
             style={{
               padding: '12px 32px',
               background: '#1e293b',
@@ -761,7 +894,7 @@ function BookingContent() {
             onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
             onMouseLeave={(e) => e.currentTarget.style.background = '#1e293b'}
           >
-            Back to Dashboard
+            {user ? 'Back to Dashboard' : 'Sign in'}
           </button>
         </div>
 
