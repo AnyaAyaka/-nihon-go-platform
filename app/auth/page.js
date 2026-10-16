@@ -1,4 +1,5 @@
 'use client'
+
 import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { supabase } from '../../lib/supabase'
@@ -8,8 +9,8 @@ import '../ng-ui.css'
 
 export default function AuthPage() {
   const router = useRouter()
-  const notifiedRef = useRef(false)
   const linkedRef = useRef(false)
+  const routedRef = useRef(false)
   const [view, setView] = useState('sign_in')
   const [back, setBack] = useState('')
 
@@ -23,53 +24,63 @@ export default function AuthPage() {
     // アプリ（/my 以下）から来た人には「アカウントなしで続ける」を出す
     if (nextPath.startsWith('/my')) setBack(params.get('back') || '/my')
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        router.push('/reset-password')
-        return
+    // --- 流入元の記録（UTM / referrer）---------------------------------
+    // 登録完了後に /welcome で profiles に書き込む。
+    // すでに保存済みなら上書きしない（最初に来たときの情報を残す）。
+    try {
+      if (!window.localStorage.getItem('ng_signup_source')) {
+        const ref = document.referrer || ''
+        const sameSite = ref && ref.indexOf(window.location.origin) === 0
+        window.localStorage.setItem('ng_signup_source', JSON.stringify({
+          referrer: sameSite ? null : (ref || null),
+          utm_source: params.get('utm_source'),
+          utm_medium: params.get('utm_medium'),
+          utm_campaign: params.get('utm_campaign'),
+          landed_at: new Date().toISOString()
+        }))
       }
+    } catch (e) {
+      // localStorage が使えない環境は無視
+    }
+    // -------------------------------------------------------------------
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') { router.push('/reset-password'); return }
       if (session) {
+        if (routedRef.current) return
 
-        // 新規登録通知
-        if (event === 'SIGNED_UP' && !notifiedRef.current) {
-          notifiedRef.current = true
-          try {
-            await fetch('/api/notify-new-user', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: session.user.email,
-                full_name: session.user.user_metadata?.full_name || '',
-                role: 'student'
-              })
-            })
-          } catch (error) {
-            console.error('Failed to notify:', error)
-          }
-        }
-
-        // JLPT購入の紐付け（新規・既存ユーザー両方）
         if (paymentIntent && !linkedRef.current) {
           linkedRef.current = true
           try {
             await fetch('/api/jlpt/link-subscription', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: session.user.id,
-                paymentIntent: paymentIntent,
-              })
+              body: JSON.stringify({ userId: session.user.id, paymentIntent: paymentIntent })
             })
-          } catch (error) {
-            console.error('Failed to link JLPT subscription:', error)
-          }
+          } catch (error) { console.error('Failed to link JLPT subscription:', error) }
         }
 
-        router.push(nextPath)
+        // オンボーディング未完了の生徒は /welcome へ。
+        // （auth イベント名に依存せず profiles を見るので、メール確認フロー経由でも必ず通る）
+        let destination = nextPath
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('role, onboarded_at')
+            .eq('user_id', session.user.id)
+            .single()
+
+          if (profileData && profileData.role !== 'teacher' && !profileData.onboarded_at) {
+            destination = '/welcome?next=' + encodeURIComponent(nextPath)
+          }
+        } catch (error) {
+          console.error('Failed to check onboarding status:', error)
+        }
+
+        routedRef.current = true
+        router.push(destination)
       }
     })
-
     return () => subscription.unsubscribe()
   }, [router])
 
