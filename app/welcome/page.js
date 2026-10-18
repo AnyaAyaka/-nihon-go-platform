@@ -152,29 +152,6 @@ export default function WelcomePage() {
     router.push(nextPath)
   }
 
-  const handleSkip = async () => {
-    setSaving(true)
-
-    await supabase
-      .from('profiles')
-      .update({ onboarded_at: new Date().toISOString(), ...readSignupSource() })
-      .eq('user_id', user.id)
-
-    try {
-      await fetch('/api/notify-new-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, full_name: '', role: 'student' })
-      })
-    } catch (err) {
-      console.error('Failed to notify:', err)
-    }
-
-    try { window.localStorage.removeItem('ng_signup_source') } catch (err) {}
-
-    router.push(nextPath)
-  }
-
   if (loading) {
     return (
       <div style={{
@@ -367,7 +344,6 @@ export default function WelcomePage() {
             style={{
               width: '100%',
               padding: '14px',
-              marginBottom: '12px',
               background: saving ? '#94a3b8' : 'linear-gradient(135deg, #fb7185 0%, #f472b6 100%)',
               color: 'white',
               border: 'none',
@@ -379,24 +355,6 @@ export default function WelcomePage() {
             }}
           >
             {saving ? 'Saving...' : 'Start learning'}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={saving}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: 'transparent',
-              color: '#64748b',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: saving ? 'not-allowed' : 'pointer'
-            }}
-          >
-            Skip for now
           </button>
         </form>
       </div>
