@@ -25,6 +25,8 @@ export default function Dashboard() {
       .eq('user_id', user.id)
       .single()
     if (profileData?.role === 'teacher') { router.push('/dashboard/teacher'); return }
+    // オンボーディング未完了の生徒は入力画面へ戻す
+    if (profileData && !profileData.onboarded_at) { router.push('/welcome'); return }
     setProfile(profileData)
     setLoading(false)
   }
