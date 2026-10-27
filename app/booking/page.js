@@ -3,63 +3,19 @@
 import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  TICKET_TO_TEACHER_LESSON_TYPE as TICKET_TO_LESSON_TYPE,
+  TICKET_LABELS,
+  LESSON_BUFFER_MINUTES,
+  SLOT_STEP_MINUTES,
+  DEFAULT_LESSON_MINUTES,
+  lessonMinutes,
+  isTicketUsable
+} from '../../lib/ticketRules'
 
-// チケット種別 → 講師の対応可否を照合するための lesson_type（teachers.lesson_types と突き合わせる）。
-// in_person_90 は teachers.lesson_types に存在しないため、in_person 対応講師 = 90分も可 とみなす。
-const TICKET_TO_LESSON_TYPE = {
-  'online_trial': 'online_trial',
-  'online': 'online',
-  'inperson_trial': 'in_person',
-  'in_person': 'in_person',
-  'in_person_90': 'in_person',
-  'premium': 'premium',
-  // ペアチケット。講師の絞り込みは通常チケットと同じ扱い
-  'online_trial_pair': 'online_trial',
-  'online_pair': 'online',
-  'inperson_trial_pair': 'in_person',
-  'in_person_pair': 'in_person'
-}
-
-// 予約画面でチケット名を表示するためのラベル
-const TICKET_LABELS = {
-  'online_trial': 'Online Trial',
-  'online': 'Online',
-  'inperson_trial': 'In-Person Trial',
-  'in_person': 'In-Person',
-  'in_person_90': 'In-Person (90 min)',
-  'premium': 'Premium (Online)',
-  'online_trial_pair': 'Online Trial (2 learners)',
-  'online_pair': 'Online (2 learners)',
-  'inperson_trial_pair': 'In-Person Trial (2 learners)',
-  'in_person_pair': 'In-Person (2 learners)'
-}
-
-// レッスン尺の設計:
-//  - 実尺 (actual): bookings.end_time / 確認画面 / メールに使う値。標準55分、in_person_90 は85分。
-//    スロットが「空き枠に収まるか」の判定にも実尺を使う（既存55分の挙動を維持）。
-//  - バッファ (buffer): 実尺の後ろに付く占有分。重複判定のフットプリント [start, end+buffer) に使う。
-//    → 実質の占有は 標準60分 / 90分だが、これは「重複判定」にのみ効かせ、開始候補の刻みには使わない。
-//  - ステップ (step): 開始候補の刻み。各空き枠の開始を起点に 30分刻み で候補を出す（従来は60分固定）。
-//    60は30の倍数なので、旧・毎時開始スロットは新スロットの部分集合＝従来スロットは必ず残る。
-// キーは ticket_type / lesson_type どちらでも引ける（値の体系が共通）。
-const LESSON_BUFFER_MINUTES = 5
-const SLOT_STEP_MINUTES = 30
-const LESSON_DURATIONS = {
-  'online_trial': 55,
-  'online': 55,
-  'inperson_trial': 55,
-  'in_person': 55,
-  'in_person_90': 85,
-  'premium': 55,
-  'online_trial_pair': 55,
-  'online_pair': 55,
-  'inperson_trial_pair': 55,
-  'in_person_pair': 55
-}
-const DEFAULT_LESSON_MINUTES = 55
-// 実尺（分）
-const lessonMinutes = (type) => LESSON_DURATIONS[type] ?? DEFAULT_LESSON_MINUTES
-
+// チケットまわりのルールは lib/ticketRules.js に集約している。
+// 予約API（app/api/bookings/create/route.js）も同じファイルを見ているので、
+// 片方だけ直して食い違うことがないようにしている。
 function BookingContent() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -125,11 +81,8 @@ function BookingContent() {
 
     if (ticketsData) {
       // 残り枚数があり、かつ有効期限内のチケットだけを使える扱いにする
-      const now = Date.now()
-      const validTickets = ticketsData.filter(t =>
-        t.remaining_tickets > 0 && (!t.expires_at || new Date(t.expires_at).getTime() >= now)
-      )
-      setAllTickets(validTickets)
+      const now = new Date()
+      setAllTickets(ticketsData.filter(t => isTicketUsable(t, now)))
     }
     setAuthChecked(true)
   }
