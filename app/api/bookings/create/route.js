@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { Resend } from 'resend'
+import {
+  TICKET_TO_BOOKING_LESSON_TYPE as TICKET_TO_LESSON_TYPE,
+  IN_PERSON_LESSON_TYPES,
+  TRAVEL_MINUTES,
+  PAIR_TICKET_TYPES,
+  LESSON_BUFFER_MINUTES,
+  lessonMinutes,
+  checkTicketForBooking
+} from '../../../../lib/ticketRules'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -209,33 +218,8 @@ async function sendBookingEmails(booking, teacherData, studentProfile) {
   }
 }
 
-// ペアチケットは1枚で2名分。lesson_type は既存の値に正規化して保存する
-const TICKET_TO_LESSON_TYPE = {
-  online_trial: 'online_trial',
-  online: 'online',
-  inperson_trial: 'inperson_trial',
-  in_person: 'in_person',
-  in_person_90: 'in_person_90',
-  premium: 'premium',
-  online_trial_pair: 'online_trial',
-  online_pair: 'online',
-  inperson_trial_pair: 'inperson_trial',
-  in_person_pair: 'in_person'
-}
-
-// 対面レッスンの種類と、対面前に必要な移動時間（分）
-const IN_PERSON_LESSON_TYPES = ['in_person', 'in_person_90', 'inperson_trial']
-const TRAVEL_MINUTES = 60
-
-const PAIR_TICKET_TYPES = ['online_trial_pair', 'online_pair', 'inperson_trial_pair', 'in_person_pair']
-
-// レッスンの実尺（分）。end_time は必ずサーバ側で start + 実尺 に確定させる（クライアント値は信用しない）。
-// in_person_90 = 85分（占有90分・実尺85分）。それ以外は標準55分。
-const LESSON_DURATION_MINUTES = { in_person_90: 85 }
-const DEFAULT_LESSON_MINUTES = 55
-const lessonMinutes = (lessonType) => LESSON_DURATION_MINUTES[lessonType] ?? DEFAULT_LESSON_MINUTES
-// スロット占有・重複判定に使うバッファ（分）
-const LESSON_BUFFER_MINUTES = 5
+// チケットまわりのルール（種別の対応、レッスン尺、有効期限）は
+// lib/ticketRules.js に集約している。予約画面も同じファイルを見ている。
 
 export async function POST(request) {
   try {
@@ -257,24 +241,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No valid tickets available' }, { status: 400 })
     }
 
-    // 有効期限のチェック。
-    // 1) 期限切れのチケットは使えない
-    // 2) レッスン日が期限より後になる予約も受け付けない（期限内に受講すること）
-    if (ticket.expires_at) {
-      const expiry = new Date(ticket.expires_at)
-      const expiryLabel = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-
-      if (expiry.getTime() < Date.now()) {
-        return NextResponse.json({
-          error: `Your lesson credits expired on ${expiryLabel}. Please contact us and we will be happy to help.`
-        }, { status: 400 })
-      }
-
-      if (new Date(startTime).getTime() > expiry.getTime()) {
-        return NextResponse.json({
-          error: `Your lesson credits are valid until ${expiryLabel}. Please choose a date on or before then.`
-        }, { status: 400 })
-      }
+    const ticketCheck = checkTicketForBooking(ticket, startTime)
+    if (!ticketCheck.ok) {
+      return NextResponse.json({ error: ticketCheck.error }, { status: 400 })
     }
 
     const { data: slotData } = await supabase
