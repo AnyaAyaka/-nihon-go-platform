@@ -257,6 +257,26 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No valid tickets available' }, { status: 400 })
     }
 
+    // 有効期限のチェック。
+    // 1) 期限切れのチケットは使えない
+    // 2) レッスン日が期限より後になる予約も受け付けない（期限内に受講すること）
+    if (ticket.expires_at) {
+      const expiry = new Date(ticket.expires_at)
+      const expiryLabel = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
+      if (expiry.getTime() < Date.now()) {
+        return NextResponse.json({
+          error: `Your lesson credits expired on ${expiryLabel}. Please contact us and we will be happy to help.`
+        }, { status: 400 })
+      }
+
+      if (new Date(startTime).getTime() > expiry.getTime()) {
+        return NextResponse.json({
+          error: `Your lesson credits are valid until ${expiryLabel}. Please choose a date on or before then.`
+        }, { status: 400 })
+      }
+    }
+
     const { data: slotData } = await supabase
       .from('teacher_availability')
       .select('teacher_id')
