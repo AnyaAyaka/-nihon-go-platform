@@ -124,7 +124,11 @@ function BookingContent() {
       .eq('user_id', user.id)
 
     if (ticketsData) {
-      const validTickets = ticketsData.filter(t => t.remaining_tickets > 0)
+      // 残り枚数があり、かつ有効期限内のチケットだけを使える扱いにする
+      const now = Date.now()
+      const validTickets = ticketsData.filter(t =>
+        t.remaining_tickets > 0 && (!t.expires_at || new Date(t.expires_at).getTime() >= now)
+      )
       setAllTickets(validTickets)
     }
     setAuthChecked(true)
@@ -387,9 +391,17 @@ function BookingContent() {
   }
 
   const getSlotsByDate = () => {
-    const splitSlots = generateSlots(availableSlots, selectedTicketType, existingBookings)
+    const allSplitSlots = generateSlots(availableSlots, selectedTicketType, existingBookings)
+
+    // 選択中のチケットの有効期限より後の枠は出さない（期限内に受講してもらう）
+    const selectedTicket = allTickets.find(t => t.ticket_type === selectedTicketType)
+    const expiryMs = selectedTicket?.expires_at ? new Date(selectedTicket.expires_at).getTime() : null
+    const splitSlots = expiryMs
+      ? allSplitSlots.filter(slot => new Date(slot.start_time_utc).getTime() <= expiryMs)
+      : allSplitSlots
+
     const grouped = {}
-    
+
     splitSlots.forEach(slot => {
       const date = new Date(slot.start_time_utc).toLocaleDateString('en-GB', {
         timeZone: 'Europe/London'
